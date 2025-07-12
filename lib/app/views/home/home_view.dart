@@ -117,10 +117,10 @@ class HomeView extends StatelessWidget {
   Widget _buildSidebar(BuildContext context) {
     return Container(
       width: 280,
-      color: Colors.white,
+      color: const Color(0xFF1E293B),
       child: Column(
         children: [
-          // Logo and Brand
+          // Logo and Title
           Container(
             padding: const EdgeInsets.all(24),
             child: Row(
@@ -130,23 +130,33 @@ class HomeView extends StatelessWidget {
                   height: 40,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Colors.pink, Colors.red],
+                      colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
                     ),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
-                    Icons.medical_services,
+                    Icons.local_hospital,
                     color: Colors.white,
+                    size: 24,
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Medi.co',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2937),
-                  ),
+                const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'SweetHogs',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Medical Dashboard',
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -155,40 +165,68 @@ class HomeView extends StatelessWidget {
           // Navigation Items
           Expanded(
             child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
                 _buildNavItem(Icons.dashboard, 'Dashboard', true, () {}),
                 _buildNavItem(
-                  Icons.calendar_today,
-                  'Appointment',
-                  false,
-                  () {},
-                ),
-                _buildNavItem(Icons.calendar_month, 'Calendar', false, () {}),
-                _buildNavItem(
                   Icons.people,
-                  'Patient',
+                  'Patients',
                   false,
                   () => Get.toNamed('/patients'),
                 ),
-                _buildNavItem(Icons.person, 'Doctor', false, () {}),
-                _buildNavItem(Icons.local_activity, 'Activity', false, () {}),
-                _buildNavItem(Icons.settings, 'Settings', false, () {}),
-                _buildNavItem(Icons.support, 'Support', false, () {}),
               ],
             ),
           ),
 
-          // Logout Button
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: ListTile(
-              leading: const Icon(Icons.logout, color: Colors.grey),
-              title: const Text(
-                'Log Out',
-                style: TextStyle(color: Colors.grey),
-              ),
-              onTap: () => _showLogoutDialog(context),
-            ),
+          // User Profile Section
+          Container(
+            padding: const EdgeInsets.all(16),
+            child: Obx(() {
+              final user = authController.currentUser;
+              return Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: const Color(0xFF3B82F6),
+                    child: Text(
+                      user?.firstName.isNotEmpty == true
+                          ? user!.firstName[0].toUpperCase()
+                          : 'U',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.fullName ?? 'User',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        Text(
+                          user?.email ?? '',
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => _showLogoutDialog(context),
+                    icon: const Icon(Icons.logout, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+              );
+            }),
           ),
         ],
       ),
@@ -202,21 +240,37 @@ class HomeView extends StatelessWidget {
     VoidCallback onTap,
   ) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF3B82F6) : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: isActive ? Colors.white : Colors.grey[600]),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.grey[600],
-            fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: isActive ? const Color(0xFF3B82F6) : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: isActive ? Colors.white : const Color(0xFF94A3B8),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isActive ? Colors.white : const Color(0xFF94A3B8),
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        onTap: onTap,
       ),
     );
   }
