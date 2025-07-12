@@ -1,0 +1,36 @@
+{
+  "dart.flutterSdkPath": "/Users/yuvrajgrover/flutter",
+  "dart.previewFlutterUiGuides": true,
+  "dart.previewFlutterUiGuidesCustomTracking": true,
+  "dart.flutterOutline": true,
+  "dart.flutterHotReloadOnSave": "all",
+  "dart.flutterHotRestartOnSave": "never",
+  "dart.openDevTools": "flutter",
+  "dart.flutterCreateAndroidLanguage": "kotlin",
+  "dart.flutterCreateIOSLanguage": "swift",
+  "dart.flutterCreatePlatforms": ["ios", "android", "web"],
+  "dart.flutterWebDevice": "chrome",
+  "dart.flutterSelectDeviceWhenConnected": false,
+  //flutter path
+  "dart.debugSdkLibraries": false,
+  "dart.debugExternalPackageLibraries": false,
+  "dart.evaluateGettersInDebugViews": false,
+  "dart.flutterRunAdditionalArgs": ["-d", "chrome"],
+  "dart.flutterTestAdditionalArgs": ["-d", "chrome"],
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/.dart_tool": true,
+    "**/build": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/build": true,
+    "**/.dart_tool": true
+  }
+}
