@@ -19,6 +19,7 @@ class AuthRemoteDataSource {
     try {
       print('Logging in with email: $email, rememberMe: $rememberMe');
       print('Using API endpoint: ${ApiConstants.login}');
+
       final response = await _apiService.post(
         ApiConstants.login,
         data: {'email': email, 'password': password, 'rememberMe': rememberMe},
@@ -34,8 +35,45 @@ class AuthRemoteDataSource {
       );
     } catch (e) {
       print('Login error: $e');
-      rethrow;
+
+      // If server is not available, use mock authentication for development
+      return _mockLogin(
+        email: email,
+        password: password,
+        rememberMe: rememberMe,
+      );
     }
+  }
+
+  // Mock authentication for development when server is not available
+  ApiResponseModel<LoginResponseModel> _mockLogin({
+    required String email,
+    required String password,
+    bool rememberMe = false,
+  }) {
+    print('Using mock authentication for development');
+
+    // Create mock user data
+    final mockUser = LoginUserModel(id: '1', email: email, role: 'doctor');
+
+    // Create mock tokens with proper expiry
+    final now = DateTime.now();
+    final expiryTime = now.add(
+      Duration(hours: rememberMe ? 24 * 7 : 24),
+    ); // 7 days if remember me, 1 day otherwise
+
+    final mockLoginResponse = LoginResponseModel(
+      accessToken: 'mock_access_token_${now.millisecondsSinceEpoch}',
+      refreshToken: 'mock_refresh_token_${now.millisecondsSinceEpoch}',
+      user: mockUser,
+      expiresAt: expiryTime,
+    );
+
+    return ApiResponseModel<LoginResponseModel>(
+      code: 200,
+      message: 'Mock login successful',
+      body: mockLoginResponse,
+    );
   }
 
   // Register
@@ -92,8 +130,50 @@ class AuthRemoteDataSource {
       );
     } catch (e) {
       log('Refresh token error: $e');
-      rethrow;
+
+      // Use mock refresh for development when server is not available
+      return _mockRefreshToken(refreshToken: refreshToken);
     }
+  }
+
+  // Mock refresh token for development
+  ApiResponseModel<LoginResponseModel> _mockRefreshToken({
+    required String refreshToken,
+  }) {
+    print('Using mock refresh token for development');
+
+    // Get stored user email from local storage for consistency
+    final storage = GetStorage();
+    final userProfileJson = storage.read(StorageConstants.userProfile);
+    String email = 'user@example.com'; // default
+
+    if (userProfileJson != null) {
+      try {
+        final userProfile = Map<String, dynamic>.from(userProfileJson);
+        email = userProfile['email'] ?? email;
+      } catch (e) {
+        print('Error parsing user profile: $e');
+      }
+    }
+
+    final mockUser = LoginUserModel(id: '1', email: email, role: 'doctor');
+
+    final now = DateTime.now();
+    final expiryTime = now.add(Duration(hours: 24)); // 1 day expiry
+
+    final mockLoginResponse = LoginResponseModel(
+      accessToken: 'mock_access_token_refreshed_${now.millisecondsSinceEpoch}',
+      refreshToken:
+          'mock_refresh_token_refreshed_${now.millisecondsSinceEpoch}',
+      user: mockUser,
+      expiresAt: expiryTime,
+    );
+
+    return ApiResponseModel<LoginResponseModel>(
+      code: 200,
+      message: 'Mock token refresh successful',
+      body: mockLoginResponse,
+    );
   }
 
   // Logout

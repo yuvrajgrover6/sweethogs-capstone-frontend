@@ -156,14 +156,24 @@ class HomeView extends StatelessWidget {
           Expanded(
             child: ListView(
               children: [
-                _buildNavItem(Icons.dashboard, 'Dashboard', true),
-                _buildNavItem(Icons.calendar_today, 'Appointment', false),
-                _buildNavItem(Icons.calendar_month, 'Calendar', false),
-                _buildNavItem(Icons.people, 'Patient', false),
-                _buildNavItem(Icons.person, 'Doctor', false),
-                _buildNavItem(Icons.local_activity, 'Activity', false),
-                _buildNavItem(Icons.settings, 'Settings', false),
-                _buildNavItem(Icons.support, 'Support', false),
+                _buildNavItem(Icons.dashboard, 'Dashboard', true, () {}),
+                _buildNavItem(
+                  Icons.calendar_today,
+                  'Appointment',
+                  false,
+                  () {},
+                ),
+                _buildNavItem(Icons.calendar_month, 'Calendar', false, () {}),
+                _buildNavItem(
+                  Icons.people,
+                  'Patient',
+                  false,
+                  () => Get.toNamed('/patients'),
+                ),
+                _buildNavItem(Icons.person, 'Doctor', false, () {}),
+                _buildNavItem(Icons.local_activity, 'Activity', false, () {}),
+                _buildNavItem(Icons.settings, 'Settings', false, () {}),
+                _buildNavItem(Icons.support, 'Support', false, () {}),
               ],
             ),
           ),
@@ -185,7 +195,12 @@ class HomeView extends StatelessWidget {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String title, bool isActive) {
+  Widget _buildNavItem(
+    IconData icon,
+    String title,
+    bool isActive,
+    VoidCallback onTap,
+  ) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       decoration: BoxDecoration(
@@ -201,7 +216,7 @@ class HomeView extends StatelessWidget {
             fontWeight: isActive ? FontWeight.w500 : FontWeight.normal,
           ),
         ),
-        onTap: () {},
+        onTap: onTap,
       ),
     );
   }
@@ -609,7 +624,13 @@ class HomeView extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
         ),
@@ -669,26 +690,45 @@ class HomeView extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'This month treatment calendar',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1F2937),
+              const Expanded(
+                flex: 2,
+                child: Text(
+                  'This month treatment calendar',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.chevron_left, size: 20),
-                  ),
-                  const Text('June 2020'),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.chevron_right, size: 20),
-                  ),
-                ],
+              Expanded(
+                flex: 1,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.chevron_left, size: 20),
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
+                    const Text('June 2020', style: TextStyle(fontSize: 14)),
+                    IconButton(
+                      onPressed: () {},
+                      icon: const Icon(Icons.chevron_right, size: 20),
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

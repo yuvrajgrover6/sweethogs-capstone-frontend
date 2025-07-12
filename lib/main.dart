@@ -5,11 +5,15 @@ import 'app/controllers/auth_controller.dart';
 import 'app/routes/app_routes.dart';
 import 'app/views/auth/login_view.dart';
 import 'app/views/home/home_view.dart';
+import 'app/views/patients/patients_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
-  Get.put(AuthController());
+
+  // Initialize AuthController and wait for it to complete
+  final authController = Get.put(AuthController());
+
   runApp(const MyApp());
 }
 
@@ -18,8 +22,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final AuthController authController = Get.find<AuthController>();
-
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'SweetHogs Capstone',
@@ -53,14 +55,69 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      initialRoute: authController.isLoggedIn
-          ? AppRoutes.home
-          : AppRoutes.login,
+      home: _buildInitialRoute(),
       getPages: [
         GetPage(name: AppRoutes.login, page: () => LoginView()),
         GetPage(name: AppRoutes.home, page: () => HomeView()),
+        GetPage(name: AppRoutes.patients, page: () => PatientsView()),
         // Add more pages/routes as needed
       ],
+    );
+  }
+
+  Widget _buildInitialRoute() {
+    return GetBuilder<AuthController>(
+      builder: (authController) {
+        if (authController.isLoading) {
+          // Show loading screen while checking authentication
+          return Scaffold(
+            backgroundColor: Color(0xff0098B9),
+            body: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Icon(
+                      Icons.local_hospital,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'SweetHogs',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Medical Dashboard',
+                    style: TextStyle(color: Colors.white70, fontSize: 16),
+                  ),
+                  const SizedBox(height: 40),
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        // Once authentication check is complete, navigate to appropriate screen
+        return authController.isLoggedIn ? HomeView() : LoginView();
+      },
     );
   }
 }

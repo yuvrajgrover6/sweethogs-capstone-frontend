@@ -39,22 +39,34 @@ class AuthController extends GetxController {
 
   // Initialize authentication state
   void _initializeAuth() async {
-    _isLoggedIn.value = _authRepository.isLoggedIn();
-    _rememberMe.value = _authRepository.getRememberMe();
-    _biometricEnabled.value = _authRepository.isBiometricEnabled();
+    _isLoading.value = true; // Set loading to true at start
 
-    if (_isLoggedIn.value) {
-      // Check if token is valid/not expired
-      if (!_authRepository.hasValidSession()) {
-        // Try to refresh token if available
-        final refreshSuccess = await refreshToken();
-        if (!refreshSuccess) {
-          // If refresh fails, logout user
-          await logout();
-          return;
+    try {
+      _isLoggedIn.value = _authRepository.isLoggedIn();
+      _rememberMe.value = _authRepository.getRememberMe();
+      _biometricEnabled.value = _authRepository.isBiometricEnabled();
+
+      if (_isLoggedIn.value) {
+        // Check if token is valid/not expired
+        if (!_authRepository.hasValidSession()) {
+          // Try to refresh token if available
+          final refreshSuccess = await refreshToken();
+          if (!refreshSuccess) {
+            // If refresh fails, logout user
+            await logout();
+            return;
+          }
         }
+        await _loadUserProfile();
       }
-      await _loadUserProfile();
+    } catch (e) {
+      log('Error during auth initialization: $e');
+      // If there's an error, assume user is not logged in
+      _isLoggedIn.value = false;
+      _currentUser.value = null;
+    } finally {
+      _isLoading.value = false; // Set loading to false when done
+      update(); // Trigger UI update
     }
   }
 
@@ -92,6 +104,8 @@ class AuthController extends GetxController {
 
         // Load user profile
         await _loadUserProfile();
+
+        update(); // Trigger UI update
 
         Get.snackbar(
           'Success',
@@ -203,6 +217,8 @@ class AuthController extends GetxController {
       _currentUser.value = null;
       _errorMessage.value = '';
 
+      update(); // Trigger UI update
+
       Get.snackbar(
         'Success',
         'Logged out successfully!',
@@ -216,6 +232,7 @@ class AuthController extends GetxController {
       // Force logout even if remote call fails
       _isLoggedIn.value = false;
       _currentUser.value = null;
+      update(); // Trigger UI update
       Get.offAllNamed(AppRoutes.login);
     } finally {
       _isLoading.value = false;

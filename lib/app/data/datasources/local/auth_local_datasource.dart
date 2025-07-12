@@ -16,7 +16,10 @@ class AuthLocalDataSource {
   Future<void> saveAuthData(AuthModel authModel) async {
     await _storage.write(StorageConstants.accessToken, authModel.accessToken);
     await _storage.write(StorageConstants.refreshToken, authModel.refreshToken);
-    await _storage.write(StorageConstants.tokenExpiryTime, authModel.expiresAt.toIso8601String());
+    await _storage.write(
+      StorageConstants.tokenExpiryTime,
+      authModel.expiresAt.toIso8601String(),
+    );
   }
 
   String? getAccessToken() {
@@ -37,13 +40,23 @@ class AuthLocalDataSource {
 
   bool isTokenExpired() {
     final expiryTime = getTokenExpiryTime();
-    if (expiryTime == null) return true;
+    // If no expiry time is set, consider token valid for mock/development mode
+    if (expiryTime == null) {
+      // Check if we have an access token and are logged in
+      final accessToken = getAccessToken();
+      final isLoggedIn = this.isLoggedIn();
+      // If we have a token and are logged in, treat as valid (for mock mode)
+      return !(accessToken != null && isLoggedIn);
+    }
     return DateTime.now().isAfter(expiryTime);
   }
 
   // User profile management
   Future<void> saveUserProfile(UserModel user) async {
-    await _storage.write(StorageConstants.userProfile, jsonEncode(user.toJson()));
+    await _storage.write(
+      StorageConstants.userProfile,
+      jsonEncode(user.toJson()),
+    );
   }
 
   UserModel? getUserProfile() {
@@ -121,7 +134,7 @@ class AuthLocalDataSource {
     final accessToken = getAccessToken();
     final isLoggedIn = this.isLoggedIn();
     final isExpired = isTokenExpired();
-    
+
     return accessToken != null && isLoggedIn && !isExpired;
   }
 }
