@@ -21,6 +21,13 @@ class ApiConstants {
   static const String profile = '$baseUrl/user/profile';
   static const String updateProfile = '$baseUrl/user/update';
 
+  // Readmission prediction endpoints
+  static const String readmissionTest = '$baseUrl/readmission/test';
+  static const String readmissionPredict = '$baseUrl/readmission/predict';
+  static const String readmissionPredictBatch =
+      '$baseUrl/readmission/predict/batch';
+  static const String readmissionModelInfo = '$baseUrl/readmission/model-info';
+
   // Headers
   static const String contentType = 'Content-Type';
   static const String authorization = 'Authorization';

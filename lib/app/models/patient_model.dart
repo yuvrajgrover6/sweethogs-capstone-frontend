@@ -288,6 +288,72 @@ class PatientModel {
       'readmitted': readmitted,
     };
   }
+
+  /// Convert to API format for readmission prediction
+  /// This format matches the API specification exactly
+  Map<String, dynamic> toApiJson() {
+    return {
+      'encounter_id': encounterId,
+      'patient_nbr': patientNumber,
+      'race': race,
+      'gender': gender,
+      'age': age,
+      'weight': weight.isEmpty ? '?' : weight,
+      'admission_type_id': admissionTypeId,
+      'discharge_disposition_id': dischargeDispositionId,
+      'admission_source_id': admissionSourceId,
+      'time_in_hospital': timeInHospital,
+      'payer_code': payerCode.isEmpty ? '?' : payerCode,
+      'medical_specialty': medicalSpecialty.isEmpty ? '?' : medicalSpecialty,
+      'num_lab_procedures': numLabProcedures,
+      'num_procedures': numProcedures,
+      'num_medications': numMedications,
+      'number_outpatient': numberOutpatient,
+      'number_emergency': numberEmergency,
+      'number_inpatient': numberInpatient,
+      'diag_1': diagnosis1.isEmpty ? '?' : diagnosis1,
+      'diag_2': diagnosis2.isEmpty ? '?' : diagnosis2,
+      'diag_3': diagnosis3.isEmpty ? '?' : diagnosis3,
+      'number_diagnoses': numberDiagnoses,
+      'max_glu_serum': maxGluSerum.isEmpty ? '?' : maxGluSerum,
+      'A1Cresult': a1cResult.isEmpty ? '?' : a1cResult,
+      'metformin': metformin.isEmpty ? 'No' : metformin,
+      'repaglinide': repaglinide.isEmpty ? 'No' : repaglinide,
+      'nateglinide': nateglinide.isEmpty ? 'No' : nateglinide,
+      'chlorpropamide': chlorpropamide.isEmpty ? 'No' : chlorpropamide,
+      'glimepiride': glimepiride.isEmpty ? 'No' : glimepiride,
+      'acetohexamide': acetohexamide.isEmpty ? 'No' : acetohexamide,
+      'glipizide': glipizide.isEmpty ? 'No' : glipizide,
+      'glyburide': glyburide.isEmpty ? 'No' : glyburide,
+      'tolbutamide': tolbutamide.isEmpty ? 'No' : tolbutamide,
+      'pioglitazone': pioglitazone.isEmpty ? 'No' : pioglitazone,
+      'rosiglitazone': rosiglitazone.isEmpty ? 'No' : rosiglitazone,
+      'acarbose': acarbose.isEmpty ? 'No' : acarbose,
+      'miglitol': miglitol.isEmpty ? 'No' : miglitol,
+      'troglitazone': troglitazone.isEmpty ? 'No' : troglitazone,
+      'tolazamide': tolazamide.isEmpty ? 'No' : tolazamide,
+      'examide': examide.isEmpty ? 'No' : examide,
+      'citoglipton': citoglipton.isEmpty ? 'No' : citoglipton,
+      'insulin': insulin.isEmpty ? 'No' : insulin,
+      'glyburide-metformin': glyburideMetformin.isEmpty
+          ? 'No'
+          : glyburideMetformin,
+      'glipizide-metformin': glipizideMetformin.isEmpty
+          ? 'No'
+          : glipizideMetformin,
+      'glimepiride-pioglitazone': glimepiridePioglitazone.isEmpty
+          ? 'No'
+          : glimepiridePioglitazone,
+      'metformin-rosiglitazone': metforminRosiglitazone.isEmpty
+          ? 'No'
+          : metforminRosiglitazone,
+      'metformin-pioglitazone': metforminPioglitazone.isEmpty
+          ? 'No'
+          : metforminPioglitazone,
+      'change': change.isEmpty ? 'No' : change,
+      'diabetesMed': diabetesMed.isEmpty ? 'No' : diabetesMed,
+    };
+  }
 }
 
 // Pagination model for patients
@@ -310,33 +376,4 @@ class PatientPagination {
   bool get hasPreviousPage => currentPage > 1;
   int get startIndex => (currentPage - 1) * itemsPerPage + 1;
   int get endIndex => (currentPage * itemsPerPage).clamp(0, totalItems);
-}
-
-// Readmission prediction result
-class ReadmissionPrediction {
-  final String patientId;
-  final double probability;
-  final String riskLevel;
-  final List<String> riskFactors;
-  final String recommendation;
-  final DateTime timestamp;
-
-  const ReadmissionPrediction({
-    required this.patientId,
-    required this.probability,
-    required this.riskLevel,
-    required this.riskFactors,
-    required this.recommendation,
-    required this.timestamp,
-  });
-
-  String get probabilityPercentage =>
-      '${(probability * 100).toStringAsFixed(1)}%';
-
-  Color get riskColor {
-    if (probability >= 0.7) return const Color(0xFFDC2626); // Red
-    if (probability >= 0.4) return const Color(0xFFF59E0B); // Orange
-    if (probability >= 0.2) return const Color(0xFFFCD34D); // Yellow
-    return const Color(0xFF10B981); // Green
-  }
 }

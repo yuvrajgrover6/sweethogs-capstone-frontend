@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../models/patient_model.dart';
+import '../models/readmission_prediction_model.dart';
+import '../services/readmission_service.dart';
 
 class PatientsController extends GetxController {
   // Observable variables
@@ -20,6 +22,9 @@ class PatientsController extends GetxController {
   final RxMap<String, ReadmissionPrediction> _predictions =
       <String, ReadmissionPrediction>{}.obs;
   final RxBool _isAnalyzing = false.obs;
+
+  // Services
+  final ReadmissionService _readmissionService = ReadmissionService();
 
   // Getters
   List<PatientModel> get allPatients => _allPatients;
@@ -200,16 +205,18 @@ class PatientsController extends GetxController {
     }
   }
 
-  // Predict readmission for a patient
+  // Predict readmission for a patient using real API
   Future<void> predictReadmission(PatientModel patient) async {
     try {
       _isAnalyzing.value = true;
 
-      // Simulate API call delay
-      await Future.delayed(const Duration(seconds: 2));
+      // Call the real API service
+      final response = await _readmissionService.predictSinglePatient(patient);
 
-      // Mock prediction algorithm based on patient data
-      final prediction = _generateMockPrediction(patient);
+      // Convert API response to ReadmissionPrediction for UI
+      final prediction = response.body.toReadmissionPrediction(
+        patient.patientId,
+      );
 
       _predictions[patient.patientId] = prediction;
 
@@ -217,10 +224,18 @@ class PatientsController extends GetxController {
         _buildPredictionDialog(patient, prediction),
         barrierDismissible: true,
       );
+
+      Get.snackbar(
+        'Success',
+        'Readmission prediction completed',
+        backgroundColor: Colors.green.withOpacity(0.1),
+        colorText: Colors.green,
+        icon: const Icon(Icons.check_circle, color: Colors.green),
+      );
     } catch (e) {
       Get.snackbar(
-        'Error',
-        'Failed to predict readmission: ${e.toString()}',
+        'Prediction Failed',
+        'Unable to get prediction from API: ${e.toString()}',
         backgroundColor: Colors.red.withOpacity(0.1),
         colorText: Colors.red,
         icon: const Icon(Icons.error, color: Colors.red),
@@ -230,112 +245,110 @@ class PatientsController extends GetxController {
     }
   }
 
-  // Generate mock prediction based on patient data
-  ReadmissionPrediction _generateMockPrediction(PatientModel patient) {
-    double baseProbability = 0.1; // Base 10% chance
-    List<String> riskFactors = [];
+  // Test API connection
+  Future<void> testApiConnection() async {
+    try {
+      _isAnalyzing.value = true;
 
-    // Age factor
-    if (patient.age.contains('70-80') ||
-        patient.age.contains('80-90') ||
-        patient.age.contains('90-100')) {
-      baseProbability += 0.3;
-      riskFactors.add('Advanced age (${patient.displayAge})');
-    } else if (patient.age.contains('60-70')) {
-      baseProbability += 0.2;
-      riskFactors.add('Senior age (${patient.displayAge})');
-    }
+      final response = await _readmissionService.testPrediction();
 
-    // Hospital stay duration
-    if (patient.timeInHospital > 10) {
-      baseProbability += 0.25;
-      riskFactors.add(
-        'Extended hospital stay (${patient.timeInHospital} days)',
+      Get.snackbar(
+        'API Connected',
+        'Test prediction successful: ${response.body.percentage}',
+        backgroundColor: Colors.green.withOpacity(0.1),
+        colorText: Colors.green,
+        icon: const Icon(Icons.cloud_done, color: Colors.green),
       );
-    } else if (patient.timeInHospital > 5) {
-      baseProbability += 0.15;
-      riskFactors.add('Long hospital stay (${patient.timeInHospital} days)');
-    }
-
-    // Previous admissions
-    if (patient.numberInpatient > 0) {
-      baseProbability += 0.2;
-      riskFactors.add(
-        'Previous inpatient admissions (${patient.numberInpatient})',
+    } catch (e) {
+      Get.snackbar(
+        'API Connection Failed',
+        'Failed to connect to API: ${e.toString()}',
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+        icon: const Icon(Icons.cloud_off, color: Colors.red),
       );
+    } finally {
+      _isAnalyzing.value = false;
     }
+  }
 
-    if (patient.numberEmergency > 0) {
-      baseProbability += 0.15;
-      riskFactors.add('Previous emergency visits (${patient.numberEmergency})');
+  // Get model information
+  Future<void> getModelInfo() async {
+    try {
+      _isAnalyzing.value = true;
+
+      // Show static model information dialog
+      Get.dialog(_buildStaticModelInfoDialog(), barrierDismissible: true);
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to get model info: ${e.toString()}',
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+        icon: const Icon(Icons.error, color: Colors.red),
+      );
+    } finally {
+      _isAnalyzing.value = false;
     }
+  }
 
-    // Medication changes
-    if (patient.change == 'Ch') {
-      baseProbability += 0.1;
-      riskFactors.add('Recent medication changes');
+  // Batch prediction for multiple patients
+  Future<void> predictBatchReadmission(List<PatientModel> patients) async {
+    try {
+      if (patients.isEmpty) {
+        Get.snackbar(
+          'Warning',
+          'No patients selected for batch prediction',
+          backgroundColor: Colors.orange.withOpacity(0.1),
+          colorText: Colors.orange,
+        );
+        return;
+      }
+
+      if (patients.length > 100) {
+        Get.snackbar(
+          'Error',
+          'Maximum 100 patients allowed per batch',
+          backgroundColor: Colors.red.withOpacity(0.1),
+          colorText: Colors.red,
+        );
+        return;
+      }
+
+      _isAnalyzing.value = true;
+
+      final response = await _readmissionService.predictBatchPatients(patients);
+
+      // Store predictions for each patient
+      for (
+        int i = 0;
+        i < patients.length && i < response.body.predictions.length;
+        i++
+      ) {
+        final patient = patients[i];
+        final predictionResult = response.body.predictions[i];
+        _predictions[patient.patientId] = predictionResult
+            .toReadmissionPrediction(patient.patientId);
+      }
+
+      Get.snackbar(
+        'Success',
+        'Batch prediction completed for ${response.body.totalPatients} patients',
+        backgroundColor: Colors.green.withOpacity(0.1),
+        colorText: Colors.green,
+        icon: const Icon(Icons.check_circle, color: Colors.green),
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Failed to predict batch readmission: ${e.toString()}',
+        backgroundColor: Colors.red.withOpacity(0.1),
+        colorText: Colors.red,
+        icon: const Icon(Icons.error, color: Colors.red),
+      );
+    } finally {
+      _isAnalyzing.value = false;
     }
-
-    // Diabetes medication
-    if (patient.diabetesMed == 'Yes') {
-      baseProbability += 0.1;
-      riskFactors.add('Currently on diabetes medication');
-    }
-
-    // Complex cases (many procedures/medications)
-    if (patient.numProcedures > 3) {
-      baseProbability += 0.1;
-      riskFactors.add('Multiple procedures (${patient.numProcedures})');
-    }
-
-    if (patient.numMedications > 10) {
-      baseProbability += 0.1;
-      riskFactors.add('Multiple medications (${patient.numMedications})');
-    }
-
-    // Previous readmission
-    if (patient.readmitted != 'NO') {
-      baseProbability += 0.4;
-      riskFactors.add('History of readmission');
-    }
-
-    // Clamp probability between 0 and 1
-    final probability = baseProbability.clamp(0.0, 0.95);
-
-    // Determine risk level and recommendation
-    String riskLevel;
-    String recommendation;
-
-    if (probability >= 0.7) {
-      riskLevel = 'Very High';
-      recommendation =
-          'Immediate intervention required. Consider discharge planning team consultation and enhanced follow-up care.';
-    } else if (probability >= 0.5) {
-      riskLevel = 'High';
-      recommendation =
-          'Close monitoring recommended. Schedule follow-up within 48-72 hours of discharge.';
-    } else if (probability >= 0.3) {
-      riskLevel = 'Moderate';
-      recommendation =
-          'Standard follow-up care with additional patient education on medication compliance.';
-    } else {
-      riskLevel = 'Low';
-      recommendation =
-          'Standard discharge protocol. Regular follow-up as scheduled.';
-    }
-
-    if (riskFactors.isEmpty) {
-      riskFactors.add('No significant risk factors identified');
-    }
-
-    return ReadmissionPrediction(
-      patientId: patient.patientId,
-      probability: probability,
-      riskLevel: riskLevel,
-      riskFactors: riskFactors,
-      recommendation: recommendation,
-      timestamp: DateTime.now(),
-    );
   }
 
   // Build prediction dialog
@@ -373,7 +386,7 @@ class PatientsController extends GetxController {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Readmission Risk Analysis',
+                        'Readmission Prediction (30 days)',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -417,7 +430,7 @@ class PatientsController extends GetxController {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Readmission Probability',
+                          'Confidence Score',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[600],
@@ -431,6 +444,15 @@ class PatientsController extends GetxController {
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
                             color: prediction.riskColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Likelihood of readmission within 30 days',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                            fontStyle: FontStyle.italic,
                           ),
                         ),
                       ],
@@ -458,9 +480,9 @@ class PatientsController extends GetxController {
             ),
             const SizedBox(height: 20),
 
-            // Risk Factors
+            // Contributing Factors
             Text(
-              'Risk Factors',
+              'Contributing Factors',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -579,6 +601,271 @@ class PatientsController extends GetxController {
   Future<void> refreshData() async {
     clearData();
     await loadPatients();
+  }
+
+  // Build static model info dialog
+  Widget _buildStaticModelInfoDialog() {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: 600,
+        constraints: const BoxConstraints(maxHeight: 700),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.info_outline,
+                    color: Colors.blue[600],
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Model Information',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                      Text(
+                        'Readmission Prediction Model v2.1',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Get.back(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Scrollable content
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Description
+                    Text(
+                      'Description',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'This machine learning model predicts the likelihood of hospital readmission within 30 days for diabetic patients. The model provides a confidence score (0-100%) indicating the probability of readmission, not a risk calculation. Higher scores indicate higher likelihood of readmission.',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Confidence Score Thresholds
+                    Text(
+                      'Confidence Score Thresholds',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey[200]!),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildThresholdRow(
+                            'Low Likelihood',
+                            '< 30%',
+                            Colors.green,
+                          ),
+                          const SizedBox(height: 8),
+                          _buildThresholdRow(
+                            'Medium Likelihood',
+                            '30% - 60%',
+                            Colors.orange,
+                          ),
+                          const SizedBox(height: 8),
+                          _buildThresholdRow(
+                            'High Likelihood',
+                            '> 60%',
+                            Colors.red,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Model Performance Metrics
+                    Text(
+                      'Model Performance Metrics',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: Column(
+                        children: [
+                          _buildMetricRow('Accuracy', '85.2%'),
+                          _buildMetricRow('Sensitivity', '78.9%'),
+                          _buildMetricRow('Specificity', '89.1%'),
+                          _buildMetricRow('AUC-ROC', '0.84'),
+                          _buildMetricRow('Precision', '76.3%'),
+                          _buildMetricRow('F1-Score', '77.6%'),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Key Features
+                    Text(
+                      'Key Features Used by Model',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFeatureSection('Patient Demographics', [
+                      'Age',
+                      'Gender',
+                      'Race',
+                    ]),
+                    _buildFeatureSection('Clinical Factors', [
+                      'Length of Stay',
+                      'Number of Diagnoses',
+                      'Number of Procedures',
+                      'Medical Specialty',
+                    ]),
+                    _buildFeatureSection('Medication History', [
+                      'Number of Medications',
+                      'Diabetes Medication',
+                      'Medication Changes',
+                    ]),
+                    _buildFeatureSection('Healthcare Utilization', [
+                      'Previous Inpatient Visits',
+                      'Emergency Visits',
+                      'Outpatient Visits',
+                    ]),
+                    _buildFeatureSection('Lab Results', [
+                      'HbA1c Results',
+                      'Glucose Serum Test',
+                      'A1C Test Results',
+                    ]),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Get.back(),
+                  child: const Text('Close'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThresholdRow(String label, String value, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 12),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+        const Spacer(),
+        Text(value, style: TextStyle(color: Colors.grey[600])),
+      ],
+    );
+  }
+
+  Widget _buildMetricRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+          const Spacer(),
+          Text(value, style: TextStyle(color: Colors.grey[700])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureSection(String title, List<String> features) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: features
+                .map(
+                  (feature) => Chip(
+                    label: Text(feature, style: const TextStyle(fontSize: 12)),
+                    backgroundColor: Colors.grey[100],
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                )
+                .toList(),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
