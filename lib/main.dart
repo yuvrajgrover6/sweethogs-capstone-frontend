@@ -23,7 +23,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
+      
       debugShowCheckedModeBanner: false,
+      defaultTransition: Transition.fade,
       title: 'SweetHogs Capstone',
       theme: ThemeData(
         primarySwatch: Colors.blue,

@@ -1,4 +1,5 @@
 import 'dart:developer';
+import 'package:dio/dio.dart';
 import 'package:get_storage/get_storage.dart';
 import '../../../constants/api_constants.dart';
 import '../../../constants/storage_constants.dart';
@@ -115,6 +116,7 @@ class AuthRemoteDataSource {
     required String refreshToken,
   }) async {
     try {
+      log('RemoteDataSource: Attempting refresh token...');
       final response = await _apiService.post(
         ApiConstants.refreshToken,
         data: {'refreshToken': refreshToken},
@@ -124,6 +126,7 @@ class AuthRemoteDataSource {
         throw Exception('No data received from server');
       }
 
+      log('RemoteDataSource: Refresh token response received');
       return ApiResponseModel<LoginResponseModel>.fromJson(
         response.data!,
         (json) => LoginResponseModel.fromJson(json as Map<String, dynamic>),
@@ -131,8 +134,28 @@ class AuthRemoteDataSource {
     } catch (e) {
       log('Refresh token error: $e');
 
-      // Use mock refresh for development when server is not available
-      return _mockRefreshToken(refreshToken: refreshToken);
+      // Don't use mock refresh for 401 errors - these should fail
+      if (e is DioException && e.response?.statusCode == 401) {
+        log('Refresh token returned 401 - token is invalid');
+        return ApiResponseModel<LoginResponseModel>(
+          code: 401,
+          message: 'Refresh token is invalid or expired',
+        );
+      }
+
+      // Only use mock for other connection errors in development
+      if (e is DioException &&
+          (e.type == DioExceptionType.connectionError ||
+              e.type == DioExceptionType.connectionTimeout)) {
+        log('Connection error - using mock refresh for development');
+        return _mockRefreshToken(refreshToken: refreshToken);
+      }
+
+      // For other errors, return failure
+      return ApiResponseModel<LoginResponseModel>(
+        code: 500,
+        message: 'Failed to refresh token: ${e.toString()}',
+      );
     }
   }
 

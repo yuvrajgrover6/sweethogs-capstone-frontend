@@ -6,10 +6,12 @@ class HomeView extends StatelessWidget {
   HomeView({super.key});
 
   final AuthController authController = Get.find<AuthController>();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: const Color(0xFFF8FAFB),
       body: SafeArea(
         child: Row(
@@ -110,6 +112,9 @@ class HomeView extends StatelessWidget {
           ],
         ),
       ),
+      drawer: MediaQuery.of(context).size.width < 768
+          ? _buildSidebar(context)
+          : null,
     );
   }
 
@@ -277,11 +282,23 @@ class HomeView extends StatelessWidget {
 
   // Top Header
   Widget _buildTopHeader(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 768;
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
         children: [
+          // Menu button for mobile
+          if (isMobile) ...[
+            IconButton(
+              onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              icon: const Icon(Icons.menu),
+            ),
+            const SizedBox(width: 8),
+          ],
+
           // Search Bar
           Expanded(
             child: Container(

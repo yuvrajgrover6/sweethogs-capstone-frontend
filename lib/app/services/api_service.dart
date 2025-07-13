@@ -60,6 +60,7 @@ class ApiService {
           );
           log('Error message: ${error.message}');
           log('Error type: ${error.type}');
+          log('Error response data: ${error.response?.data}');
 
           // Handle connection errors specifically
           if (error.type == DioExceptionType.connectionError ||
@@ -70,6 +71,16 @@ class ApiService {
           }
 
           if (error.response?.statusCode == 401) {
+            // Don't try to refresh if this is already a refresh token request
+            if (error.requestOptions.path.contains('/auth/refresh')) {
+              log(
+                'Refresh token request failed with 401, redirecting to login',
+              );
+              _handleUnauthorized();
+              handler.next(error);
+              return;
+            }
+
             // Token expired, try to refresh
             log('401 error detected, attempting token refresh...');
             final refreshed = await _refreshToken();
@@ -87,13 +98,14 @@ class ApiService {
                 return;
               } catch (e) {
                 log('Retry failed after token refresh: $e');
+                _handleUnauthorized();
+                handler.next(error);
+                return;
               }
             } else {
               log('Token refresh failed, redirecting to login');
+              _handleUnauthorized();
             }
-
-            // If refresh fails, redirect to login
-            _handleUnauthorized();
           }
 
           handler.next(error);
@@ -105,20 +117,31 @@ class ApiService {
   Future<bool> _refreshToken() async {
     try {
       final refreshToken = _storage.read(StorageConstants.refreshToken);
-      if (refreshToken == null) return false;
+      if (refreshToken == null) {
+        log('No refresh token found in storage');
+        return false;
+      }
 
+      log(
+        'Attempting to refresh token with: ${refreshToken.substring(0, 10)}...',
+      );
+
+      // Don't include any authorization header for refresh token request
+      // The refresh token should only be sent in the request body
       final response = await _dio.post(
         ApiConstants.refreshToken,
         data: {'refreshToken': refreshToken},
         options: Options(
           headers: {
-            ApiConstants.authorization: '${ApiConstants.bearer} $refreshToken',
+            // Remove any existing authorization header for this request
+            ApiConstants.contentType: 'application/json',
           },
         ),
       );
 
       if (response.statusCode == 200) {
         final data = response.data;
+        log('Refresh token response: $data');
 
         // Handle response structure based on backend API
         String? newAccessToken;
@@ -132,6 +155,12 @@ class ApiService {
           newAccessToken = body['accessToken'];
           newRefreshToken = body['refreshToken'];
           expiresAt = body['expiresAt'];
+        } else if (data['success'] != null && data['data'] != null) {
+          // Another possible structure: {success, data: {accessToken, refreshToken}}
+          final dataBody = data['data'];
+          newAccessToken = dataBody['accessToken'];
+          newRefreshToken = dataBody['refreshToken'];
+          expiresAt = dataBody['expiresAt'];
         } else {
           // Direct structure: {accessToken, refreshToken, expiresAt}
           newAccessToken = data['accessToken'];
@@ -148,6 +177,8 @@ class ApiService {
           }
 
           log('Tokens refreshed successfully');
+          log('New access token: ${newAccessToken.substring(0, 10)}...');
+          log('New refresh token: ${newRefreshToken.substring(0, 10)}...');
           return true;
         } else {
           log('Invalid refresh response structure: $data');
@@ -155,10 +186,15 @@ class ApiService {
         }
       } else {
         log('Refresh token failed with status: ${response.statusCode}');
+        log('Response data: ${response.data}');
         return false;
       }
     } catch (e) {
       log('Token refresh failed: $e');
+      if (e is DioException) {
+        log('DioException details: ${e.response?.data}');
+        log('Status code: ${e.response?.statusCode}');
+      }
     }
     return false;
   }
