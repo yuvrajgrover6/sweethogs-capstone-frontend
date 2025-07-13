@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 class ApiConstants {
   // Use different URLs for different platforms
   static const String baseUrl = kIsWeb
-      ? 'https://capstoneprojectserver-production.up.railway.app' // For web development
+      ? 'http://localhost:3000' // For web development
       : 'http://10.0.2.2:3000'; // For Android emulator (iOS simulator uses localhost)
 
   // Auth endpoints

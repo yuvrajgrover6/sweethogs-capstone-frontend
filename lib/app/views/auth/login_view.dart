@@ -144,7 +144,7 @@ class LoginView extends StatelessWidget {
                   children: [
                     // Logo
                     Container(
-                      height: 60,
+                      height: 250,
                       child: Image.asset(
                         "assets/images/logo_white.png",
                         fit: BoxFit.contain,
@@ -211,7 +211,7 @@ class LoginView extends StatelessWidget {
               children: [
                 // Logo
                 Container(
-                  height: 80,
+                  height: 250,
                   child: Image.asset(
                     "assets/images/logo_white.png",
                     fit: BoxFit.contain,
