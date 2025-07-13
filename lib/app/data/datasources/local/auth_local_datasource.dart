@@ -40,13 +40,9 @@ class AuthLocalDataSource {
 
   bool isTokenExpired() {
     final expiryTime = getTokenExpiryTime();
-    // If no expiry time is set, consider token valid for mock/development mode
+    // If no expiry time is set, consider token invalid
     if (expiryTime == null) {
-      // Check if we have an access token and are logged in
-      final accessToken = getAccessToken();
-      final isLoggedIn = this.isLoggedIn();
-      // If we have a token and are logged in, treat as valid (for mock mode)
-      return !(accessToken != null && isLoggedIn);
+      return true;
     }
     return DateTime.now().isAfter(expiryTime);
   }

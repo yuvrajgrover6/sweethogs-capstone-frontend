@@ -18,7 +18,7 @@ class ReadmissionService {
   }
 
   /// Test prediction endpoint (public)
-  /// Returns a mock prediction for testing
+  /// Returns a test prediction for endpoint verification
   Future<ReadmissionApiResponse> testPrediction() async {
     try {
       log('Calling test prediction endpoint...');

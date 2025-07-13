@@ -35,46 +35,9 @@ class AuthRemoteDataSource {
         (json) => LoginResponseModel.fromJson(json as Map<String, dynamic>),
       );
     } catch (e) {
-      print('Login error: $e');
-
-      // If server is not available, use mock authentication for development
-      return _mockLogin(
-        email: email,
-        password: password,
-        rememberMe: rememberMe,
-      );
+      log('Login error: $e');
+      rethrow;
     }
-  }
-
-  // Mock authentication for development when server is not available
-  ApiResponseModel<LoginResponseModel> _mockLogin({
-    required String email,
-    required String password,
-    bool rememberMe = false,
-  }) {
-    print('Using mock authentication for development');
-
-    // Create mock user data
-    final mockUser = LoginUserModel(id: '1', email: email, role: 'doctor');
-
-    // Create mock tokens with proper expiry
-    final now = DateTime.now();
-    final expiryTime = now.add(
-      Duration(hours: rememberMe ? 24 * 7 : 24),
-    ); // 7 days if remember me, 1 day otherwise
-
-    final mockLoginResponse = LoginResponseModel(
-      accessToken: 'mock_access_token_${now.millisecondsSinceEpoch}',
-      refreshToken: 'mock_refresh_token_${now.millisecondsSinceEpoch}',
-      user: mockUser,
-      expiresAt: expiryTime,
-    );
-
-    return ApiResponseModel<LoginResponseModel>(
-      code: 200,
-      message: 'Mock login successful',
-      body: mockLoginResponse,
-    );
   }
 
   // Register
@@ -134,7 +97,7 @@ class AuthRemoteDataSource {
     } catch (e) {
       log('Refresh token error: $e');
 
-      // Don't use mock refresh for 401 errors - these should fail
+      // For 401 errors (invalid/expired refresh token), return proper error
       if (e is DioException && e.response?.statusCode == 401) {
         log('Refresh token returned 401 - token is invalid');
         return ApiResponseModel<LoginResponseModel>(
@@ -143,60 +106,12 @@ class AuthRemoteDataSource {
         );
       }
 
-      // Only use mock for other connection errors in development
-      if (e is DioException &&
-          (e.type == DioExceptionType.connectionError ||
-              e.type == DioExceptionType.connectionTimeout)) {
-        log('Connection error - using mock refresh for development');
-        return _mockRefreshToken(refreshToken: refreshToken);
-      }
-
       // For other errors, return failure
       return ApiResponseModel<LoginResponseModel>(
         code: 500,
         message: 'Failed to refresh token: ${e.toString()}',
       );
     }
-  }
-
-  // Mock refresh token for development
-  ApiResponseModel<LoginResponseModel> _mockRefreshToken({
-    required String refreshToken,
-  }) {
-    print('Using mock refresh token for development');
-
-    // Get stored user email from local storage for consistency
-    final storage = GetStorage();
-    final userProfileJson = storage.read(StorageConstants.userProfile);
-    String email = 'user@example.com'; // default
-
-    if (userProfileJson != null) {
-      try {
-        final userProfile = Map<String, dynamic>.from(userProfileJson);
-        email = userProfile['email'] ?? email;
-      } catch (e) {
-        print('Error parsing user profile: $e');
-      }
-    }
-
-    final mockUser = LoginUserModel(id: '1', email: email, role: 'doctor');
-
-    final now = DateTime.now();
-    final expiryTime = now.add(Duration(hours: 24)); // 1 day expiry
-
-    final mockLoginResponse = LoginResponseModel(
-      accessToken: 'mock_access_token_refreshed_${now.millisecondsSinceEpoch}',
-      refreshToken:
-          'mock_refresh_token_refreshed_${now.millisecondsSinceEpoch}',
-      user: mockUser,
-      expiresAt: expiryTime,
-    );
-
-    return ApiResponseModel<LoginResponseModel>(
-      code: 200,
-      message: 'Mock token refresh successful',
-      body: mockLoginResponse,
-    );
   }
 
   // Logout

@@ -253,130 +253,153 @@ class LoginView extends StatelessWidget {
     TextEditingController passwordController, {
     required double fieldWidth,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Email Field
-        SizedBox(
-          width: fieldWidth == double.infinity ? null : fieldWidth,
-          child: TextFormField(
-            controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
-            style: const TextStyle(color: Colors.white),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your email';
-              }
-              return null;
-            },
-            autocorrect: true,
-            enableSuggestions: true,
-            cursorColor: Colors.white,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              focusColor: Colors.white,
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white),
-              ),
-              labelStyle: TextStyle(color: Colors.white),
-              border: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white),
-              ),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white),
-              ),
-            ),
-          ),
-        ),
+    final formKey = GlobalKey<FormState>();
 
-        const SizedBox(height: 24),
-
-        // Password Field
-        SizedBox(
-          width: fieldWidth == double.infinity ? null : fieldWidth,
-          child: TextFormField(
-            controller: passwordController,
-            keyboardType: TextInputType.visiblePassword,
-            textInputAction: TextInputAction.done,
-            style: const TextStyle(color: Colors.white),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter your password';
-              }
-              return null;
-            },
-            obscureText: true,
-            cursorColor: Colors.white,
-            decoration: const InputDecoration(
-              focusColor: Colors.white,
-              focusedBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white),
-              ),
-              labelText: 'Password',
-              labelStyle: TextStyle(color: Colors.white),
-              border: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white),
-              ),
-              enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.white),
-              ),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 24),
-
-        // Remember Me Checkbox
-        Row(
-          children: [
-            Obx(
-              () => Checkbox(
-                value: controller.rememberMeRx.value,
-                onChanged: (value) {
-                  if (value != null) {
-                    controller.setRememberMe(value);
-                  }
-                },
-                activeColor: Colors.white,
-                checkColor: const Color(0xff0098B9),
-              ),
-            ),
-            const Text("Remember me", style: TextStyle(color: Colors.white)),
-          ],
-        ),
-
-        const SizedBox(height: 32),
-
-        // Login Button
-        Align(
-          alignment: Alignment.centerRight,
-          child: SizedBox(
-            width: 120,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () async {
-                await controller.login(
-                  email: emailController.text.trim(),
-                  password: passwordController.text.trim(),
-                  rememberMe: controller.rememberMeRx.value,
-                );
+    return Form(
+      key: formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Email Field
+          SizedBox(
+            width: fieldWidth == double.infinity ? null : fieldWidth,
+            child: TextFormField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              style: const TextStyle(color: Colors.white),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your email';
+                }
+                if (!value.contains('@') || !value.contains('.')) {
+                  return 'Please enter a valid email address';
+                }
+                return null;
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xff0098B9),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+              autocorrect: true,
+              enableSuggestions: true,
+              cursorColor: Colors.white,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                focusColor: Colors.white,
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+                labelStyle: TextStyle(color: Colors.white),
+                border: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
                 ),
               ),
-              child: const Text(
-                "Login",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Password Field
+          SizedBox(
+            width: fieldWidth == double.infinity ? null : fieldWidth,
+            child: TextFormField(
+              controller: passwordController,
+              keyboardType: TextInputType.visiblePassword,
+              textInputAction: TextInputAction.done,
+              style: const TextStyle(color: Colors.white),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter your password';
+                }
+                if (value.length < 6) {
+                  return 'Password must be at least 6 characters long';
+                }
+                return null;
+              },
+              obscureText: true,
+              cursorColor: Colors.white,
+              decoration: const InputDecoration(
+                focusColor: Colors.white,
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+                labelText: 'Password',
+                labelStyle: TextStyle(color: Colors.white),
+                border: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white),
+                ),
               ),
             ),
           ),
-        ),
-      ],
+
+          const SizedBox(height: 24),
+
+          // Remember Me Checkbox
+          Row(
+            children: [
+              Obx(
+                () => Checkbox(
+                  value: controller.rememberMeRx.value,
+                  onChanged: (value) {
+                    if (value != null) {
+                      controller.setRememberMe(value);
+                    }
+                  },
+                  activeColor: Colors.white,
+                  checkColor: const Color(0xff0098B9),
+                ),
+              ),
+              const Text("Remember me", style: TextStyle(color: Colors.white)),
+            ],
+          ),
+
+          const SizedBox(height: 32),
+
+          // Login Button
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              width: 120,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: () async {
+                  // Validate form before attempting login
+                  if (formKey.currentState!.validate()) {
+                    await controller.login(
+                      email: emailController.text.trim(),
+                      password: passwordController.text.trim(),
+                      rememberMe: controller.rememberMeRx.value,
+                    );
+                  } else {
+                    // Show validation error message
+                    Get.snackbar(
+                      'Validation Error',
+                      'Please fix the errors above and try again',
+                      snackPosition: SnackPosition.BOTTOM,
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xff0098B9),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  "Login",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -29,7 +29,7 @@ This document describes the implementation of the Diabetic Patient Readmission P
 
 ### 3. Error Handling & Fallback
 
-- **Graceful Degradation**: Falls back to mock predictions if API is unavailable
+- **Error Handling**: Proper error messages when API is unavailable
 - **Connection Status**: Clear indicators when API is offline/online
 - **User Feedback**: Informative messages about API status
 
@@ -99,13 +99,13 @@ lib/app/
 
    - Click "Test API" button in the patients page header
    - Green success message indicates API is available
-   - Red error message indicates API is offline (falls back to mock data)
+   - Red error message indicates API is offline
 
 2. **Single Patient Prediction**
 
    - Click "Predict" button next to any patient
    - System automatically tries real API first
-   - Falls back to mock prediction if API unavailable
+   - Shows proper error message if API unavailable
 
 3. **Batch Prediction**
 
@@ -134,7 +134,7 @@ lib/app/
 #### Testing Offline Mode
 
 1. Stop the backend server
-2. App will show connection errors and fall back to mock predictions
+2. App will show connection errors with proper error handling
 3. Users can still interact with all features
 
 #### Adding New Endpoints
@@ -200,7 +200,7 @@ lib/app/
 ### Connection Errors
 
 - **Message**: "Unable to connect to server. Please check if the backend is running on localhost:3000"
-- **Action**: Automatic fallback to mock predictions
+- **Action**: Display appropriate error message to user
 
 ### Authentication Errors
 
@@ -257,7 +257,7 @@ lib/app/
 - [ ] Test model information display
 - [ ] Test authentication token handling
 - [ ] Test error message display
-- [ ] Test fallback to mock predictions
+- [ ] Test error handling when API is unavailable
 
 ### API Response Testing
 

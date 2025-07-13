@@ -1,140 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
 import 'package:sweethogs_capstone_frontend/app/models/user_model.dart';
 import 'package:sweethogs_capstone_frontend/app/models/login_response_model.dart';
 import 'package:sweethogs_capstone_frontend/app/models/api_response_model.dart';
 import 'package:sweethogs_capstone_frontend/app/constants/storage_constants.dart';
 
-// Mock AuthController that doesn't require GetStorage
-class MockAuthController {
-  bool _isLoggedIn = false;
-  UserModel? _currentUser;
-  String _errorMessage = '';
-  bool _isLoading = false;
-  bool _rememberMe = false;
-  bool _biometricEnabled = false;
-
-  bool get isLoggedIn => _isLoggedIn;
-  UserModel? get currentUser => _currentUser;
-  String get errorMessage => _errorMessage;
-  bool get isLoading => _isLoading;
-  bool get rememberMe => _rememberMe;
-  bool get biometricEnabled => _biometricEnabled;
-
-  void setLoggedIn(bool value) => _isLoggedIn = value;
-  void setCurrentUser(UserModel? user) => _currentUser = user;
-  void setErrorMessage(String message) => _errorMessage = message;
-  void setLoading(bool loading) => _isLoading = loading;
-  void setRememberMe(bool remember) => _rememberMe = remember;
-  void setBiometricEnabled(bool enabled) => _biometricEnabled = enabled;
-
-  void clearErrorMessage() => _errorMessage = '';
-
-  void logout() {
-    _isLoggedIn = false;
-    _currentUser = null;
-    _errorMessage = '';
-  }
-}
-
 void main() {
   group('Authentication Unit Tests', () {
-    late MockAuthController authController;
-
     setUpAll(() async {
       // Initialize Flutter test binding
       TestWidgetsFlutterBinding.ensureInitialized();
-    });
-
-    setUp(() async {
-      // Initialize GetX test mode
-      Get.testMode = true;
-
-      // Initialize mock controller
-      authController = MockAuthController();
-
-      // Wait a bit for initialization
-      await Future.delayed(const Duration(milliseconds: 50));
-    });
-
-    tearDown(() {
-      // Clean up after each test
-      Get.reset();
-    });
-
-    group('AuthController State Management Tests', () {
-      test('should initialize with correct default state', () {
-        // Assert
-        expect(authController.isLoggedIn, false);
-        expect(authController.currentUser, null);
-        expect(authController.errorMessage, '');
-        expect(authController.isLoading, false);
-        expect(authController.rememberMe, false);
-        expect(authController.biometricEnabled, false);
-      });
-
-      test('should update state correctly during login simulation', () async {
-        // Arrange - Simulate successful login state
-        final testUser = UserModel(
-          id: '123',
-          email: 'test@example.com',
-          firstName: 'John',
-          lastName: 'Doe',
-          role: 'user',
-          isActive: true,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          version: 1,
-        );
-
-        // Act - Manually set state to simulate successful login
-        authController.setLoggedIn(true);
-        authController.setCurrentUser(testUser);
-        authController.setErrorMessage('');
-
-        // Assert
-        expect(authController.isLoggedIn, true);
-        expect(authController.currentUser?.email, 'test@example.com');
-        expect(authController.currentUser?.fullName, 'John Doe');
-        expect(authController.errorMessage, '');
-      });
-
-      test('should handle error state correctly', () {
-        // Act
-        authController.setErrorMessage('Invalid credentials');
-        authController.setLoggedIn(false);
-
-        // Assert
-        expect(authController.isLoggedIn, false);
-        expect(authController.errorMessage, 'Invalid credentials');
-      });
-
-      test('should clear error message', () {
-        // Arrange
-        authController.setErrorMessage('Some error');
-
-        // Act
-        authController.clearErrorMessage();
-
-        // Assert
-        expect(authController.errorMessage, '');
-      });
-
-      test('should set remember me preference', () {
-        // Act
-        authController.setRememberMe(true);
-
-        // Assert
-        expect(authController.rememberMe, true);
-      });
-
-      test('should update loading state', () {
-        // Act
-        authController.setLoading(true);
-
-        // Assert
-        expect(authController.isLoading, true);
-      });
     });
 
     group('Data Model Tests', () {

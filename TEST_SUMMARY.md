@@ -70,13 +70,13 @@ Comprehensive test suite covering the authentication system of the SweetHogs Cap
 - **Data Model Testing**: Ensure proper serialization and business logic
 - **Edge Case Testing**: Handle error conditions and edge scenarios
 
-### Mock Implementation
+### Testing Approach
 
-Created a `MockAuthController` to avoid GetStorage initialization issues:
+Focused on unit testing of data models and business logic:
 
-- Simulates all AuthController functionality
-- Provides controllable state management
-- Enables comprehensive testing without platform dependencies
+- Tests data model creation, serialization, and validation
+- Validates storage constants and business logic
+- Tests authentication flow components without external dependencies
 
 ### Key Test Features
 
@@ -88,12 +88,12 @@ Created a `MockAuthController` to avoid GetStorage initialization issues:
 
 ## Test File Location
 
-`test/auth_integration_test.dart`
+`test/auth_unit_test.dart`
 
 ## Running Tests
 
 ```bash
-flutter test test/auth_integration_test.dart
+flutter test test/auth_unit_test.dart
 ```
 
 ## Key Insights from Testing
