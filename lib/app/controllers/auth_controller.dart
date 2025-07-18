@@ -113,25 +113,56 @@ class AuthController extends GetxController {
           }
         }
       } else {
-        print('🔐 User should not be logged in');
-        log('User should not be logged in');
-        _isLoggedIn.value = false;
+        print('🔐 User should not be logged in, but checking for cached profile...');
+        log('User should not be logged in, but checking for cached profile...');
+        
+        // Check if there's a cached user profile even without remember me
+        final cachedUser = await _authRepository.getUserProfile();
+        if (cachedUser != null) {
+          print('🔐 Found cached user profile: ${cachedUser.email} - keeping user logged in with cached data');
+          log('Found cached user profile: ${cachedUser.email} - keeping user logged in with cached data');
+          _isLoggedIn.value = true;
+          _currentUser.value = cachedUser;
+          
+          // Try to refresh token silently to restore full functionality
+          print('🔐 Attempting silent token refresh for cached user...');
+          log('Attempting silent token refresh for cached user...');
+          final refreshSuccess = await refreshToken();
+          if (refreshSuccess) {
+            print('🔐 Token refresh successful for cached user');
+            log('Token refresh successful for cached user');
+            await _loadUserProfile();
+          } else {
+            print('🔐 Token refresh failed - user will have cached profile but limited API access');
+            log('Token refresh failed - user will have cached profile but limited API access');
+          }
+        } else {
+          print('🔐 No cached user profile found - user is logged out');
+          log('No cached user profile found - user is logged out');
+          _isLoggedIn.value = false;
+        }
       }
     } catch (e) {
       print('🔐 Error during auth initialization: $e');
       log('Error during auth initialization: $e');
-      // If there's an error, handle based on remember me setting
-      if (_rememberMe.value) {
-        print('🔐 Error but remember me enabled, keeping user logged in with cached data');
-        log('Error but remember me enabled, keeping user logged in with cached data');
-        // For remembered users, keep them logged in with cached data
-        _isLoggedIn.value = true;
-        // Try to load cached user profile
+      
+      // Always try to load cached user profile on error
+      try {
         final cachedUser = await _authRepository.getUserProfile();
         if (cachedUser != null) {
+          print('🔐 Error but cached user found: ${cachedUser.email}, keeping user logged in');
+          log('Error but cached user found: ${cachedUser.email}, keeping user logged in');
+          _isLoggedIn.value = true;
           _currentUser.value = cachedUser;
+        } else {
+          print('🔐 Error and no cached user found, logging out');
+          log('Error and no cached user found, logging out');
+          _isLoggedIn.value = false;
+          _currentUser.value = null;
         }
-      } else {
+      } catch (profileError) {
+        print('🔐 Error loading cached profile: $profileError');
+        log('Error loading cached profile: $profileError');
         _isLoggedIn.value = false;
         _currentUser.value = null;
       }

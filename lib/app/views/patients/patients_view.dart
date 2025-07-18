@@ -254,30 +254,7 @@ class PatientsView extends StatelessWidget {
                     isActive: true,
                     onTap: () => Navigator.pop(context),
                   ),
-                  _buildNavItem(
-                    icon: Icons.analytics,
-                    title: 'Analytics',
-                    isActive: false,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  _buildNavItem(
-                    icon: Icons.calendar_today,
-                    title: 'Appointments',
-                    isActive: false,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  _buildNavItem(
-                    icon: Icons.medication,
-                    title: 'Medications',
-                    isActive: false,
-                    onTap: () => Navigator.pop(context),
-                  ),
-                  _buildNavItem(
-                    icon: Icons.settings,
-                    title: 'Settings',
-                    isActive: false,
-                    onTap: () => Navigator.pop(context),
-                  ),
+                 
                 ],
               ),
             ),

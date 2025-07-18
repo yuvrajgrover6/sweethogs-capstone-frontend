@@ -131,8 +131,8 @@ class PatientsController extends GetxController {
       );
 
       if (patients.isNotEmpty) {
-        CustomSnackbar.dataLoaded('Loaded ${patients.length} patients (Page ${apiResponse.body.page} of ${apiResponse.body.totalPages})');
-      } else {
+        print('Loaded ${patients.length} patients (Page ${apiResponse.body.page} of ${apiResponse.body.totalPages})');
+        } else {
         CustomSnackbar.info('No patients found');
       }
     } catch (e) {
