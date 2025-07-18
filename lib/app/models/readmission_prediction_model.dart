@@ -401,4 +401,15 @@ class ReadmissionPrediction {
     if (probability >= 0.2) return const Color(0xFFFCD34D); // Yellow
     return const Color(0xFF10B981); // Green
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'patientId': patientId,
+      'probability': probability,
+      'riskLevel': riskLevel,
+      'riskFactors': riskFactors,
+      'recommendation': recommendation,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
 }

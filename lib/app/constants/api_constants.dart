@@ -27,6 +27,7 @@ class ApiConstants {
   static const String readmissionPredictBatch =
       '$baseUrl/readmission/predict/batch';
   static const String readmissionModelInfo = '$baseUrl/readmission/model-info';
+  static const String readmissionGeneratePdf = '$baseUrl/readmission/generate-pdf';
 
   // Headers
   static const String contentType = 'Content-Type';

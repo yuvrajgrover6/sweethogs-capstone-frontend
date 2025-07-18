@@ -1,5 +1,8 @@
 import 'dart:developer';
+import 'dart:html' as html;
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import '../constants/api_constants.dart';
 import '../models/patient_model.dart';
 import '../models/readmission_prediction_model.dart';
@@ -133,6 +136,76 @@ class ReadmissionService {
     } catch (e) {
       log('Exception in getModelInfo: $e');
       throw Exception('Failed to get model info: $e');
+    }
+  }
+
+  /// Generate and download PDF for prediction (protected)
+  /// Requires authentication
+  Future<void> generatePredictionPdf({
+    required PatientModel patient,
+    required ReadmissionPrediction prediction,
+  }) async {
+    try {
+      log('Generating PDF for patient: ${patient.patientId}');
+
+      // Format data according to the API specification
+      final requestData = {
+        'patientData': patient.toApiJson(), // Use API format for patient data
+        'confidenceScore': prediction.probability, // Already in 0-1 format
+        'remedy': prediction.recommendation, // Use recommendation as remedy
+      };
+
+      log('Sending PDF request data: $requestData');
+
+      final response = await _apiService.post<List<int>>(
+        ApiConstants.readmissionGeneratePdf,
+        data: requestData,
+        options: Options(
+          responseType: ResponseType.bytes,
+          headers: {
+            'Accept': 'application/pdf',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        _downloadPdfFile(response.data!, patient);
+      } else {
+        throw Exception('Failed to generate PDF: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      log('DioException in generatePredictionPdf: ${e.message}');
+      throw _handleDioException(e);
+    } catch (e) {
+      log('Exception in generatePredictionPdf: $e');
+      throw Exception('Failed to generate PDF: $e');
+    }
+  }
+
+  /// Download PDF file to browser
+  void _downloadPdfFile(List<int> pdfBytes, PatientModel patient) {
+    try {
+      if (kIsWeb) {
+        // Web platform - use html download
+        final blob = html.Blob([Uint8List.fromList(pdfBytes)], 'application/pdf');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.document.createElement('a') as html.AnchorElement
+          ..href = url
+          ..style.display = 'none'
+          ..download = 'prediction_${patient.patientId}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        html.document.body?.children.add(anchor);
+        anchor.click();
+        html.document.body?.children.remove(anchor);
+        html.Url.revokeObjectUrl(url);
+      } else {
+        // For mobile platforms, you would typically use path_provider and open_file
+        // This is a placeholder for now
+        log('PDF download not implemented for mobile platforms yet');
+        throw Exception('PDF download not available on this platform');
+      }
+    } catch (e) {
+      log('Error downloading PDF: $e');
+      throw Exception('Failed to download PDF file: $e');
     }
   }
 

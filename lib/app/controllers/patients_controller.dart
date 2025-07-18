@@ -394,6 +394,25 @@ class PatientsController extends GetxController {
     }
   }
 
+  // Download prediction as PDF
+  Future<void> downloadPredictionPdf(
+    PatientModel patient,
+    ReadmissionPrediction prediction,
+  ) async {
+    try {
+      CustomSnackbar.info('Generating PDF report...');
+      
+      await _readmissionService.generatePredictionPdf(
+        patient: patient,
+        prediction: prediction,
+      );
+      
+      CustomSnackbar.success('PDF report downloaded successfully');
+    } catch (e) {
+      CustomSnackbar.error('Failed to generate PDF: ${_getApiErrorMessage(e)}');
+    }
+  }
+
   // Build prediction dialog
   Widget _buildPredictionDialog(
     PatientModel patient,
@@ -603,10 +622,9 @@ class PatientsController extends GetxController {
                 TextButton(onPressed: () => Get.back(), child: Text('Close')),
                 const SizedBox(width: 12),
                 ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: Implement save/export functionality
-                    Get.back();
-                    CustomSnackbar.success('Prediction results saved to patient record');
+                  onPressed: () async {
+                    Get.back(); // Close dialog first
+                    await downloadPredictionPdf(patient, prediction);
                   },
                   icon: const Icon(Icons.save),
                   label: const Text('Save to Record'),
