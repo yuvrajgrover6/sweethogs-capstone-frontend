@@ -80,17 +80,25 @@ class ModelInfoResponse {
 /// Single prediction result
 class ReadmissionPredictionResult {
   final int confidenceScore;
+  final String? remedy;
 
-  const ReadmissionPredictionResult({required this.confidenceScore});
+  const ReadmissionPredictionResult({
+    required this.confidenceScore,
+    this.remedy,
+  });
 
   factory ReadmissionPredictionResult.fromJson(Map<String, dynamic> json) {
     return ReadmissionPredictionResult(
       confidenceScore: json['confidence_score'] ?? 0,
+      remedy: json['remedy'],
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'confidence_score': confidenceScore};
+    return {
+      'confidence_score': confidenceScore,
+      if (remedy != null) 'remedy': remedy,
+    };
   }
 
   /// Convert to percentage string
@@ -117,39 +125,70 @@ class ReadmissionPredictionResult {
     List<String> riskFactors = [];
     String recommendation = '';
 
-    // Generate risk factors and recommendations based on score
-    if (confidenceScore >= 70) {
-      riskFactors = [
-        'Very high readmission risk detected',
-        'Multiple risk factors present',
-        'Requires immediate intervention',
-      ];
-      recommendation =
-          'Immediate intervention required. Consider discharge planning team consultation and enhanced follow-up care.';
-    } else if (confidenceScore >= 50) {
-      riskFactors = [
-        'High readmission risk detected',
-        'Several risk factors identified',
-        'Close monitoring needed',
-      ];
-      recommendation =
-          'Close monitoring recommended. Schedule follow-up within 48-72 hours of discharge.';
-    } else if (confidenceScore >= 30) {
-      riskFactors = [
-        'Moderate readmission risk',
-        'Some risk factors present',
-        'Standard care with education',
-      ];
-      recommendation =
-          'Standard follow-up care with additional patient education on medication compliance.';
+    // Use remedy from API if available, otherwise generate based on score
+    if (remedy != null && remedy!.isNotEmpty) {
+      recommendation = remedy!;
+      // Generate appropriate risk factors based on score
+      if (confidenceScore >= 70) {
+        riskFactors = [
+          'Very high readmission risk detected',
+          'Multiple risk factors present',
+          'Requires immediate intervention',
+        ];
+      } else if (confidenceScore >= 50) {
+        riskFactors = [
+          'High readmission risk detected',
+          'Several risk factors identified',
+          'Close monitoring needed',
+        ];
+      } else if (confidenceScore >= 30) {
+        riskFactors = [
+          'Moderate readmission risk',
+          'Some risk factors present',
+          'Standard care with education',
+        ];
+      } else {
+        riskFactors = [
+          'Low readmission risk',
+          'Minimal risk factors identified',
+          'Standard care protocols',
+        ];
+      }
     } else {
-      riskFactors = [
-        'Low readmission risk',
-        'Minimal risk factors identified',
-        'Standard care protocols',
-      ];
-      recommendation =
-          'Standard discharge protocol. Regular follow-up as scheduled.';
+      // Generate risk factors and recommendations based on score (fallback)
+      if (confidenceScore >= 70) {
+        riskFactors = [
+          'Very high readmission risk detected',
+          'Multiple risk factors present',
+          'Requires immediate intervention',
+        ];
+        recommendation =
+            'Immediate intervention required. Consider discharge planning team consultation and enhanced follow-up care.';
+      } else if (confidenceScore >= 50) {
+        riskFactors = [
+          'High readmission risk detected',
+          'Several risk factors identified',
+          'Close monitoring needed',
+        ];
+        recommendation =
+            'Close monitoring recommended. Schedule follow-up within 48-72 hours of discharge.';
+      } else if (confidenceScore >= 30) {
+        riskFactors = [
+          'Moderate readmission risk',
+          'Some risk factors present',
+          'Standard care with education',
+        ];
+        recommendation =
+            'Standard follow-up care with additional patient education on medication compliance.';
+      } else {
+        riskFactors = [
+          'Low readmission risk',
+          'Minimal risk factors identified',
+          'Standard care protocols',
+        ];
+        recommendation =
+            'Standard discharge protocol. Regular follow-up as scheduled.';
+      }
     }
 
     return ReadmissionPrediction(

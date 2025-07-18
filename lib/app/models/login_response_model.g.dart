@@ -10,7 +10,9 @@ LoginResponseModel _$LoginResponseModelFromJson(Map<String, dynamic> json) =>
     LoginResponseModel(
       accessToken: json['accessToken'] as String,
       refreshToken: json['refreshToken'] as String,
-      user: LoginUserModel.fromJson(json['user'] as Map<String, dynamic>),
+      user: json['user'] == null
+          ? null
+          : LoginUserModel.fromJson(json['user'] as Map<String, dynamic>),
       expiresAt: json['expiresAt'] == null
           ? null
           : DateTime.parse(json['expiresAt'] as String),

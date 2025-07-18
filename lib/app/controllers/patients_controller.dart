@@ -1,10 +1,11 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../models/patient_model.dart';
 import '../models/readmission_prediction_model.dart';
 import '../services/readmission_service.dart';
+import '../services/patient_api_service.dart';
+import '../constants/api_constants.dart';
+import '../utils/custom_snackbar.dart';
 
 class PatientsController extends GetxController {
   // Observable variables
@@ -25,6 +26,7 @@ class PatientsController extends GetxController {
 
   // Services
   final ReadmissionService _readmissionService = ReadmissionService();
+  final PatientApiService _patientApiService = PatientApiService();
 
   // Getters
   List<PatientModel> get allPatients => _allPatients;
@@ -55,45 +57,97 @@ class PatientsController extends GetxController {
     loadPatients();
   }
 
-  // Load patients from JSON file
+  // Load patients from API
   Future<void> loadPatients() async {
     try {
       _isLoading.value = true;
       _errorMessage.value = '';
 
-      // Load JSON data from assets
-      final String jsonString = await rootBundle.loadString(
-        'assets/images/diabetic_data_sample.json',
+      print('Fetching patients from API... Page: ${_currentPage.value}, Limit: ${_itemsPerPage.value}, Filter: ${_selectedFilter.value}');
+      
+      // For risk-based filters, we need to load more data to account for client-side filtering
+      int requestLimit = _itemsPerPage.value;
+      bool isRiskFilter = _selectedFilter.value.contains('risk');
+      
+      if (isRiskFilter) {
+        // Load more data to account for client-side filtering
+        requestLimit = (_itemsPerPage.value * 3).clamp(10, 100); // Load 3x to ensure we have enough data
+      }
+      
+      // Prepare filter parameters based on selected filter
+      String? diabetesMed;
+      String? readmitted;
+      
+      switch (_selectedFilter.value) {
+        case 'diabetes_med':
+          diabetesMed = 'Yes';
+          break;
+        case 'readmitted':
+          readmitted = '>30';
+          break;
+        default:
+          break; // No specific API filter for risk levels, these are computed
+      }
+      
+      final apiResponse = await _patientApiService.getPatients(
+        page: _currentPage.value,
+        limit: requestLimit,
+        search: _searchQuery.value.isNotEmpty ? _searchQuery.value : null,
+        diabetesMed: diabetesMed,
+        readmitted: readmitted,
       );
-      final List<dynamic> jsonData = json.decode(jsonString);
 
-      // Convert to PatientModel list
-      final List<PatientModel> patients = jsonData
-          .map((json) => PatientModel.fromJson(json))
-          .toList();
-
+      print('API Response received: ${apiResponse.body.patients.length} patients for page ${apiResponse.body.page}');
+      print('Total patients in database: ${apiResponse.body.total}, Total pages: ${apiResponse.body.totalPages}');
+      
+      List<PatientModel> patients = apiResponse.body.patients;
+      
+      // Apply client-side filtering for risk levels (since API doesn't support these)
+      if (_selectedFilter.value == 'high_risk') {
+        patients = patients.where((p) => p.riskLevel == 'High').toList();
+      } else if (_selectedFilter.value == 'medium_risk') {
+        patients = patients.where((p) => p.riskLevel == 'Medium').toList();
+      } else if (_selectedFilter.value == 'low_risk') {
+        patients = patients.where((p) => p.riskLevel == 'Low' || p.riskLevel == 'Very Low').toList();
+      }
+      
+      // For risk filters, limit to requested page size
+      if (isRiskFilter) {
+        int startIndex = 0;
+        int endIndex = _itemsPerPage.value.clamp(0, patients.length);
+        patients = patients.sublist(startIndex, endIndex);
+      }
+      
       _allPatients.value = patients;
       _filteredPatients.value = patients;
-
-      // Initialize pagination
-      _updatePagination();
-
-      Get.snackbar(
-        'Success',
-        'Loaded ${patients.length} patients successfully',
-        backgroundColor: Colors.green.withOpacity(0.1),
-        colorText: Colors.green,
-        icon: const Icon(Icons.check_circle, color: Colors.green),
+      
+      // Update pagination with API response (server-side pagination)
+      _currentPagination.value = PatientPagination(
+        patients: patients,
+        currentPage: apiResponse.body.page,
+        totalPages: apiResponse.body.totalPages,
+        totalItems: apiResponse.body.total,
+        itemsPerPage: _itemsPerPage.value, // Use the actual requested items per page
       );
+
+      if (patients.isNotEmpty) {
+        CustomSnackbar.dataLoaded('Loaded ${patients.length} patients (Page ${apiResponse.body.page} of ${apiResponse.body.totalPages})');
+      } else {
+        CustomSnackbar.info('No patients found');
+      }
     } catch (e) {
-      _errorMessage.value = 'Failed to load patients: ${e.toString()}';
-      Get.snackbar(
-        'Error',
-        'Failed to load patients: ${e.toString()}',
-        backgroundColor: Colors.red.withOpacity(0.1),
-        colorText: Colors.red,
-        icon: const Icon(Icons.error, color: Colors.red),
+      print('Error loading patients: $e');
+      _errorMessage.value = 'Failed to connect to API: ${e.toString()}';
+      _allPatients.value = [];
+      _filteredPatients.value = [];
+      _currentPagination.value = PatientPagination(
+        patients: [],
+        currentPage: 1,
+        totalPages: 1,
+        totalItems: 0,
+        itemsPerPage: _itemsPerPage.value,
       );
+      CustomSnackbar.error('No data available. Please check your connection and try again.');
     } finally {
       _isLoading.value = false;
     }
@@ -103,84 +157,23 @@ class PatientsController extends GetxController {
   void searchPatients(String query) {
     _searchQuery.value = query;
     _currentPage.value = 1; // Reset to first page
-    _applyFilters();
+    loadPatients(); // Reload from API with search
   }
 
   // Apply filter
   void applyFilter(String filter) {
     _selectedFilter.value = filter;
     _currentPage.value = 1; // Reset to first page
-    _applyFilters();
+    loadPatients(); // Reload from API with filter
   }
 
-  // Apply search and filter logic
-  void _applyFilters() {
-    List<PatientModel> filtered = List.from(_allPatients);
 
-    // Apply search filter
-    if (_searchQuery.value.isNotEmpty) {
-      final query = _searchQuery.value.toLowerCase();
-      filtered = filtered.where((patient) {
-        return patient.patientId.toLowerCase().contains(query) ||
-            patient.encounterIdDisplay.toLowerCase().contains(query) ||
-            patient.race.toLowerCase().contains(query) ||
-            patient.gender.toLowerCase().contains(query) ||
-            patient.medicalSpecialty.toLowerCase().contains(query) ||
-            patient.primaryDiagnosis.toLowerCase().contains(query);
-      }).toList();
-    }
-
-    // Apply category filter
-    switch (_selectedFilter.value) {
-      case 'high_risk':
-        filtered = filtered.where((p) => p.riskLevel == 'High').toList();
-        break;
-      case 'medium_risk':
-        filtered = filtered.where((p) => p.riskLevel == 'Medium').toList();
-        break;
-      case 'low_risk':
-        filtered = filtered
-            .where((p) => p.riskLevel == 'Low' || p.riskLevel == 'Very Low')
-            .toList();
-        break;
-      case 'readmitted':
-        filtered = filtered.where((p) => p.readmitted != 'NO').toList();
-        break;
-      case 'diabetes_med':
-        filtered = filtered.where((p) => p.diabetesMed == 'Yes').toList();
-        break;
-      default:
-        break; // Show all
-    }
-
-    _filteredPatients.value = filtered;
-    _updatePagination();
-  }
-
-  // Update pagination
-  void _updatePagination() {
-    final totalItems = _filteredPatients.length;
-    final totalPages = (totalItems / _itemsPerPage.value).ceil();
-
-    final startIndex = (_currentPage.value - 1) * _itemsPerPage.value;
-    final endIndex = (startIndex + _itemsPerPage.value).clamp(0, totalItems);
-
-    final currentPagePatients = _filteredPatients.sublist(startIndex, endIndex);
-
-    _currentPagination.value = PatientPagination(
-      patients: currentPagePatients,
-      currentPage: _currentPage.value,
-      totalPages: totalPages,
-      totalItems: totalItems,
-      itemsPerPage: _itemsPerPage.value,
-    );
-  }
 
   // Change page
   void changePage(int page) {
     if (page >= 1 && page <= (currentPagination?.totalPages ?? 1)) {
       _currentPage.value = page;
-      _updatePagination();
+      loadPatients(); // Reload from API with new page
     }
   }
 
@@ -188,7 +181,7 @@ class PatientsController extends GetxController {
   void changeItemsPerPage(int itemsPerPage) {
     _itemsPerPage.value = itemsPerPage;
     _currentPage.value = 1; // Reset to first page
-    _updatePagination();
+    loadPatients(); // Reload from API with new items per page
   }
 
   // Go to next page
@@ -210,6 +203,22 @@ class PatientsController extends GetxController {
     try {
       _isAnalyzing.value = true;
 
+      // Debug patient data
+      debugPatientData(patient);
+
+      // Validate patient data before API call
+      final validationErrors = patient.validateApiFields();
+      if (validationErrors.isNotEmpty) {
+        CustomSnackbar.validationError(
+          'Patient data incomplete:\n${validationErrors.join('\n')}',
+        );
+        return;
+      }
+
+      // Debug: Log the API payload
+      final apiPayload = patient.toApiJson();
+      print('API Payload for ${patient.patientId}: $apiPayload');
+
       // Call the real API service
       final response = await _readmissionService.predictSinglePatient(patient);
 
@@ -225,24 +234,75 @@ class PatientsController extends GetxController {
         barrierDismissible: true,
       );
 
-      Get.snackbar(
-        'Success',
-        'Readmission prediction completed',
-        backgroundColor: Colors.green.withOpacity(0.1),
-        colorText: Colors.green,
-        icon: const Icon(Icons.check_circle, color: Colors.green),
-      );
+      CustomSnackbar.predictionCompleted('Readmission prediction completed');
     } catch (e) {
-      Get.snackbar(
-        'Prediction Failed',
-        'Unable to get prediction from API: ${e.toString()}',
-        backgroundColor: Colors.red.withOpacity(0.1),
-        colorText: Colors.red,
-        icon: const Icon(Icons.error, color: Colors.red),
-      );
+      CustomSnackbar.predictionFailed(_getApiErrorMessage(e));
     } finally {
       _isAnalyzing.value = false;
     }
+  }
+
+  // Helper method to get user-friendly error messages
+  String _getApiErrorMessage(dynamic error) {
+    final errorString = error.toString().toLowerCase();
+    
+    print('Full error details: $error'); // Debug logging
+    
+    if (errorString.contains('401') || errorString.contains('unauthorized')) {
+      return 'Authentication required. Please login again.';
+    } else if (errorString.contains('400') || errorString.contains('validation')) {
+      return 'Invalid patient data. Please check all required fields.\nError details: $error';
+    } else if (errorString.contains('500') || errorString.contains('server')) {
+      return 'Server error. Please try again later.';
+    } else if (errorString.contains('connection') || errorString.contains('network')) {
+      return 'Unable to connect to server. Please check if the backend is running on localhost:3000';
+    } else if (errorString.contains('timeout')) {
+      return 'Request timeout. Please try again.';
+    } else {
+      return 'Unable to get prediction from API: ${error.toString()}';
+    }
+  }
+
+  // Get risk level information for UI
+  Map<String, dynamic> getRiskLevel(int score) {
+    if (score >= 60) {
+      return {
+        'level': 'HIGH',
+        'color': const Color(0xFFDC2626),
+        'text': 'High Risk',
+        'icon': Icons.warning,
+      };
+    } else if (score >= 30) {
+      return {
+        'level': 'MEDIUM', 
+        'color': const Color(0xFFF59E0B),
+        'text': 'Medium Risk',
+        'icon': Icons.info_outline,
+      };
+    } else {
+      return {
+        'level': 'LOW',
+        'color': const Color(0xFF10B981),
+        'text': 'Low Risk',
+        'icon': Icons.check_circle_outline,
+      };
+    }
+  }
+
+  // Debug method to test patient data
+  void debugPatientData(PatientModel patient) {
+    print('=== Patient Debug Info ===');
+    print('Patient ID: ${patient.patientId}');
+    print('Age: "${patient.age}"');
+    print('Gender: "${patient.gender}"');
+    print('Time in hospital: ${patient.timeInHospital}');
+    print('Admission type: ${patient.admissionTypeId}');
+    print('Discharge disposition: ${patient.dischargeDispositionId}');
+    print('Admission source: ${patient.admissionSourceId}');
+    print('Number of diagnoses: ${patient.numberDiagnoses}');
+    print('API JSON: ${patient.toApiJson()}');
+    print('Validation errors: ${patient.validateApiFields()}');
+    print('=== End Debug Info ===');
   }
 
   // Test API connection
@@ -250,23 +310,16 @@ class PatientsController extends GetxController {
     try {
       _isAnalyzing.value = true;
 
+      print('Testing API connection to ${ApiConstants.readmissionTest}');
+
       final response = await _readmissionService.testPrediction();
 
-      Get.snackbar(
-        'API Connected',
-        'Test prediction successful: ${response.body.percentage}',
-        backgroundColor: Colors.green.withOpacity(0.1),
-        colorText: Colors.green,
-        icon: const Icon(Icons.cloud_done, color: Colors.green),
+      CustomSnackbar.apiConnected(
+        'Test prediction successful: ${response.body.percentage}${response.body.remedy != null ? '\nRecommendation: ${response.body.remedy}' : ''}',
       );
     } catch (e) {
-      Get.snackbar(
-        'API Connection Failed',
-        'Failed to connect to API: ${e.toString()}',
-        backgroundColor: Colors.red.withOpacity(0.1),
-        colorText: Colors.red,
-        icon: const Icon(Icons.cloud_off, color: Colors.red),
-      );
+      print('API connection test failed: $e');
+      CustomSnackbar.apiConnectionFailed(_getApiErrorMessage(e));
     } finally {
       _isAnalyzing.value = false;
     }
@@ -280,13 +333,7 @@ class PatientsController extends GetxController {
       // Show static model information dialog
       Get.dialog(_buildStaticModelInfoDialog(), barrierDismissible: true);
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to get model info: ${e.toString()}',
-        backgroundColor: Colors.red.withOpacity(0.1),
-        colorText: Colors.red,
-        icon: const Icon(Icons.error, color: Colors.red),
-      );
+      CustomSnackbar.error('Failed to get model info: ${e.toString()}');
     } finally {
       _isAnalyzing.value = false;
     }
@@ -296,21 +343,27 @@ class PatientsController extends GetxController {
   Future<void> predictBatchReadmission(List<PatientModel> patients) async {
     try {
       if (patients.isEmpty) {
-        Get.snackbar(
-          'Warning',
-          'No patients selected for batch prediction',
-          backgroundColor: Colors.orange.withOpacity(0.1),
-          colorText: Colors.orange,
-        );
+        CustomSnackbar.warning('No patients selected for batch prediction');
         return;
       }
 
       if (patients.length > 100) {
-        Get.snackbar(
-          'Error',
-          'Maximum 100 patients allowed per batch',
-          backgroundColor: Colors.red.withOpacity(0.1),
-          colorText: Colors.red,
+        CustomSnackbar.error('Maximum 100 patients allowed per batch');
+        return;
+      }
+
+      // Validate all patients before processing
+      List<String> invalidPatients = [];
+      for (int i = 0; i < patients.length; i++) {
+        final validationErrors = patients[i].validateApiFields();
+        if (validationErrors.isNotEmpty) {
+          invalidPatients.add('Patient ${patients[i].patientId}: ${validationErrors.first}');
+        }
+      }
+
+      if (invalidPatients.isNotEmpty) {
+        CustomSnackbar.validationError(
+          'Some patients have invalid data: ${invalidPatients.take(3).join(', ')}${invalidPatients.length > 3 ? '...' : ''}',
         );
         return;
       }
@@ -331,21 +384,11 @@ class PatientsController extends GetxController {
             .toReadmissionPrediction(patient.patientId);
       }
 
-      Get.snackbar(
-        'Success',
+      CustomSnackbar.success(
         'Batch prediction completed for ${response.body.totalPatients} patients',
-        backgroundColor: Colors.green.withOpacity(0.1),
-        colorText: Colors.green,
-        icon: const Icon(Icons.check_circle, color: Colors.green),
       );
     } catch (e) {
-      Get.snackbar(
-        'Error',
-        'Failed to predict batch readmission: ${e.toString()}',
-        backgroundColor: Colors.red.withOpacity(0.1),
-        colorText: Colors.red,
-        icon: const Icon(Icons.error, color: Colors.red),
-      );
+      CustomSnackbar.error(_getApiErrorMessage(e));
     } finally {
       _isAnalyzing.value = false;
     }
@@ -563,12 +606,7 @@ class PatientsController extends GetxController {
                   onPressed: () {
                     // TODO: Implement save/export functionality
                     Get.back();
-                    Get.snackbar(
-                      'Success',
-                      'Prediction results saved to patient record',
-                      backgroundColor: Colors.green.withOpacity(0.1),
-                      colorText: Colors.green,
-                    );
+                    CustomSnackbar.success('Prediction results saved to patient record');
                   },
                   icon: const Icon(Icons.save),
                   label: const Text('Save to Record'),
@@ -866,6 +904,91 @@ class PatientsController extends GetxController {
         ],
       ),
     );
+  }
+
+  // Patient Management Methods
+  
+  // Create a new patient
+  Future<bool> createPatient(PatientModel patient) async {
+    try {
+      _isLoading.value = true;
+      
+      await _patientApiService.createPatient(patient.toJson());
+      
+      // Refresh the patient list after creation
+      await loadPatients();
+      
+      CustomSnackbar.success('Patient created successfully');
+      return true;
+    } catch (e) {
+      CustomSnackbar.error('Failed to create patient: ${e.toString()}');
+      return false;
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
+  // Update an existing patient
+  Future<bool> updatePatient(String patientId, PatientModel patient) async {
+    try {
+      _isLoading.value = true;
+      
+      await _patientApiService.updatePatient(patientId, patient.toJson());
+      
+      // Refresh the patient list after update
+      await loadPatients();
+      
+      CustomSnackbar.success('Patient updated successfully');
+      return true;
+    } catch (e) {
+      CustomSnackbar.error('Failed to update patient: ${e.toString()}');
+      return false;
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
+  // Delete a patient
+  Future<bool> deletePatient(String patientId) async {
+    try {
+      _isLoading.value = true;
+      
+      await _patientApiService.deletePatient(patientId);
+      
+      // Refresh the patient list after deletion
+      await loadPatients();
+      
+      CustomSnackbar.success('Patient deleted successfully');
+      return true;
+    } catch (e) {
+      CustomSnackbar.error('Failed to delete patient: ${e.toString()}');
+      return false;
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
+  // Get a single patient by ID
+  Future<PatientModel?> getPatientById(String patientId) async {
+    try {
+      _isLoading.value = true;
+      
+      final patient = await _patientApiService.getPatientById(patientId);
+      return patient;
+    } catch (e) {
+      CustomSnackbar.error('Failed to load patient: ${e.toString()}');
+      return null;
+    } finally {
+      _isLoading.value = false;
+    }
+  }
+
+  // Refresh data from API (renamed to avoid duplicate)
+  Future<void> refreshPatientData() async {
+    _currentPage.value = 1;
+    _searchQuery.value = '';
+    _selectedFilter.value = 'all';
+    await loadPatients();
   }
 
   @override

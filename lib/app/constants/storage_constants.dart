@@ -5,6 +5,7 @@ class StorageConstants {
   static const String userProfile = 'user_profile';
   static const String isLoggedIn = 'is_logged_in';
   static const String rememberMe = 'remember_me';
+  static const String rememberedEmail = 'remembered_email';
   static const String biometricEnabled = 'biometric_enabled';
   static const String themeMode = 'theme_mode';
   static const String language = 'language';

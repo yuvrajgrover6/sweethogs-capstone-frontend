@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sweethogs_capstone_frontend/app/controllers/auth_controller.dart';
+import '../../utils/custom_snackbar.dart';
 
 class LoginView extends StatelessWidget {
   const LoginView({super.key});
@@ -21,6 +22,7 @@ class LoginView extends StatelessWidget {
   Widget _buildLoginView(BuildContext context, AuthController controller) {
     final TextEditingController emailController = TextEditingController();
     final TextEditingController passwordController = TextEditingController();
+    
     final size = MediaQuery.of(context).size;
     final isTablet = size.width >= 768 && size.width < 1024;
     final isMobile = size.width < 768;
@@ -375,12 +377,8 @@ class LoginView extends StatelessWidget {
                     );
                   } else {
                     // Show validation error message
-                    Get.snackbar(
-                      'Validation Error',
+                    CustomSnackbar.validationError(
                       'Please fix the errors above and try again',
-                      snackPosition: SnackPosition.BOTTOM,
-                      backgroundColor: Colors.red,
-                      colorText: Colors.white,
                     );
                   }
                 },
@@ -394,6 +392,32 @@ class LoginView extends StatelessWidget {
                 child: const Text(
                   "Login",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ),
+          ),
+
+          // Test Login Button (for debugging)
+          const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: 200,
+              height: 40,
+              child: ElevatedButton(
+                onPressed: () async {
+                  await controller.testLogin();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text(
+                  "Test Login (Debug)",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
               ),
             ),

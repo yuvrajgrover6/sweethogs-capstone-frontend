@@ -10,6 +10,7 @@ abstract class AppRoutes {
   // Main app routes
   static const String home = '/home';
   static const String patients = '/patients';
+  static const String patientForm = '/patient-form';
   static const String profile = '/profile';
   static const String settings = '/settings';
   static const String changePassword = '/change-password';

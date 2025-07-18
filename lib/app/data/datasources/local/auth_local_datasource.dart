@@ -90,13 +90,30 @@ class AuthLocalDataSource {
     return _storage.read(StorageConstants.biometricEnabled) ?? false;
   }
 
-  // Clear all auth data
+  // Clear auth data (preserves remember me and biometric settings)
   Future<void> clearAuthData() async {
+    await _storage.remove(StorageConstants.accessToken);
+    await _storage.remove(StorageConstants.refreshToken);
+    await _storage.remove(StorageConstants.tokenExpiryTime);
+    
+    // If remember me is enabled, keep user logged in and preserve profile
+    final rememberMe = getRememberMe();
+    if (!rememberMe) {
+      await _storage.remove(StorageConstants.userProfile);
+      await _storage.write(StorageConstants.isLoggedIn, false);
+    }
+    // Note: When remember me is enabled, we keep isLoggedIn=true and userProfile
+  }
+
+  // Clear all auth data including user preferences (for complete logout)
+  Future<void> clearAllAuthData() async {
     await _storage.remove(StorageConstants.accessToken);
     await _storage.remove(StorageConstants.refreshToken);
     await _storage.remove(StorageConstants.userProfile);
     await _storage.remove(StorageConstants.tokenExpiryTime);
     await _storage.write(StorageConstants.isLoggedIn, false);
+    await _storage.remove(StorageConstants.rememberMe);
+    await _storage.remove(StorageConstants.biometricEnabled);
   }
 
   // Theme and preferences
@@ -131,6 +148,16 @@ class AuthLocalDataSource {
     final isLoggedIn = this.isLoggedIn();
     final isExpired = isTokenExpired();
 
+    // For valid session, we need a valid token that's not expired
     return accessToken != null && isLoggedIn && !isExpired;
+  }
+
+  // Check if user should remain logged in (for UI purposes)
+  bool shouldStayLoggedIn() {
+    final isLoggedIn = this.isLoggedIn();
+    final rememberMe = getRememberMe();
+    
+    // If remember me is enabled and user was logged in, keep them logged in
+    return rememberMe && isLoggedIn;
   }
 }

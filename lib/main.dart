@@ -6,13 +6,14 @@ import 'app/routes/app_routes.dart';
 import 'app/views/auth/login_view.dart';
 import 'app/views/home/home_view.dart';
 import 'app/views/patients/patients_view.dart';
+import 'app/views/patients/patient_form_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GetStorage.init();
 
-  // Initialize AuthController and wait for it to complete
-  final authController = Get.put(AuthController());
+  // Initialize AuthController
+  Get.put(AuthController());
 
   runApp(const MyApp());
 }
@@ -62,6 +63,7 @@ class MyApp extends StatelessWidget {
         GetPage(name: AppRoutes.login, page: () => LoginView()),
         GetPage(name: AppRoutes.home, page: () => HomeView()),
         GetPage(name: AppRoutes.patients, page: () => PatientsView()),
+        GetPage(name: AppRoutes.patientForm, page: () => PatientFormView()),
         // Add more pages/routes as needed
       ],
     );
@@ -70,6 +72,8 @@ class MyApp extends StatelessWidget {
   Widget _buildInitialRoute() {
     return GetBuilder<AuthController>(
       builder: (authController) {
+        print('🏠 Building initial route - isLoading: ${authController.isLoading}, isLoggedIn: ${authController.isLoggedIn}');
+        
         if (authController.isLoading) {
           // Show loading screen while checking authentication
           return Scaffold(
@@ -118,6 +122,7 @@ class MyApp extends StatelessWidget {
         }
 
         // Once authentication check is complete, navigate to appropriate screen
+        print('🏠 Auth check complete - routing to: ${authController.isLoggedIn ? 'HomeView' : 'LoginView'}');
         return authController.isLoggedIn ? HomeView() : LoginView();
       },
     );

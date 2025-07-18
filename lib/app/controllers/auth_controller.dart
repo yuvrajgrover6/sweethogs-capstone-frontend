@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../data/repositories/auth_repository.dart';
 import '../models/user_model.dart';
 import '../routes/app_routes.dart';
+import '../utils/custom_snackbar.dart';
 
 class AuthController extends GetxController {
   final AuthRepository _authRepository = AuthRepository();
@@ -34,7 +35,31 @@ class AuthController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    print('🔐 AuthController onInit() called');
+    _debugStorageState();
     _initializeAuth();
+  }
+
+  // Debug method to check storage state
+  void _debugStorageState() async {
+    try {
+      final isLoggedIn = _authRepository.isLoggedIn();
+      final rememberMe = _authRepository.getRememberMe();
+      final hasValidSession = _authRepository.hasValidSession();
+      final shouldStayLoggedIn = _authRepository.shouldStayLoggedIn();
+      final accessToken = _authRepository.getAccessToken();
+      final user = await _authRepository.getUserProfile();
+      
+      print('🔍 Storage Debug:');
+      print('  - isLoggedIn: $isLoggedIn');
+      print('  - rememberMe: $rememberMe');
+      print('  - hasValidSession: $hasValidSession');
+      print('  - shouldStayLoggedIn: $shouldStayLoggedIn');
+      print('  - accessToken: ${accessToken != null ? 'Present (${accessToken.length} chars)' : 'Not found'}');
+      print('  - userProfile: ${user != null ? 'Present (${user.email})' : 'Not found'}');
+    } catch (e) {
+      print('🔍 Storage Debug Error: $e');
+    }
   }
 
   // Initialize authentication state
@@ -42,29 +67,76 @@ class AuthController extends GetxController {
     _isLoading.value = true; // Set loading to true at start
 
     try {
-      _isLoggedIn.value = _authRepository.isLoggedIn();
       _rememberMe.value = _authRepository.getRememberMe();
       _biometricEnabled.value = _authRepository.isBiometricEnabled();
-
-      if (_isLoggedIn.value) {
-        // Check if token is valid/not expired
-        if (!_authRepository.hasValidSession()) {
-          // Try to refresh token if available
+      
+      // Check if user should stay logged in (remember me functionality)
+      final shouldStayLoggedIn = _authRepository.shouldStayLoggedIn();
+      final hasValidSession = _authRepository.hasValidSession();
+      
+      print('🔐 Auth initialization: shouldStayLoggedIn=$shouldStayLoggedIn, hasValidSession=$hasValidSession, rememberMe=${_rememberMe.value}');
+      log('Auth initialization: shouldStayLoggedIn=$shouldStayLoggedIn, hasValidSession=$hasValidSession, rememberMe=${_rememberMe.value}');
+      
+      if (shouldStayLoggedIn || hasValidSession) {
+        _isLoggedIn.value = true;
+        print('🔐 User should be logged in');
+        
+        if (hasValidSession) {
+          print('🔐 User has valid session, loading profile...');
+          log('User has valid session, loading profile...');
+          await _loadUserProfile();
+        } else if (shouldStayLoggedIn) {
+          print('🔐 Remember me enabled but no valid session - loading cached profile');
+          log('Remember me enabled but no valid session - loading cached profile');
+          // Load cached user profile if available
+          final cachedUser = await _authRepository.getUserProfile();
+          if (cachedUser != null) {
+            _currentUser.value = cachedUser;
+            print('🔐 Loaded cached user: ${cachedUser.email}');
+            log('Loaded cached user: ${cachedUser.email}');
+          } else {
+            print('🔐 No cached user profile found');
+            log('No cached user profile found');
+          }
+          
+          // Try to refresh token silently
+          print('🔐 Attempting silent token refresh...');
+          log('Attempting silent token refresh...');
           final refreshSuccess = await refreshToken();
-          if (!refreshSuccess) {
-            // If refresh fails, logout user
-            await logout();
-            return;
+          if (refreshSuccess) {
+            print('🔐 Token refresh successful');
+            log('Token refresh successful');
+            await _loadUserProfile();
+          } else {
+            print('🔐 Token refresh failed - user will need to re-authenticate for API calls');
+            log('Token refresh failed - user will need to re-authenticate for API calls');
           }
         }
-        await _loadUserProfile();
+      } else {
+        print('🔐 User should not be logged in');
+        log('User should not be logged in');
+        _isLoggedIn.value = false;
       }
     } catch (e) {
+      print('🔐 Error during auth initialization: $e');
       log('Error during auth initialization: $e');
-      // If there's an error, assume user is not logged in
-      _isLoggedIn.value = false;
-      _currentUser.value = null;
+      // If there's an error, handle based on remember me setting
+      if (_rememberMe.value) {
+        print('🔐 Error but remember me enabled, keeping user logged in with cached data');
+        log('Error but remember me enabled, keeping user logged in with cached data');
+        // For remembered users, keep them logged in with cached data
+        _isLoggedIn.value = true;
+        // Try to load cached user profile
+        final cachedUser = await _authRepository.getUserProfile();
+        if (cachedUser != null) {
+          _currentUser.value = cachedUser;
+        }
+      } else {
+        _isLoggedIn.value = false;
+        _currentUser.value = null;
+      }
     } finally {
+      print('🔐 Auth initialization complete. isLoggedIn=${_isLoggedIn.value}');
       _isLoading.value = false; // Set loading to false when done
       update(); // Trigger UI update
     }
@@ -107,11 +179,7 @@ class AuthController extends GetxController {
 
         update(); // Trigger UI update
 
-        Get.snackbar(
-          'Success',
-          'Login successful!',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        CustomSnackbar.success('Login successful!');
 
         // Navigate to home page
         Get.offAllNamed(AppRoutes.home);
@@ -119,21 +187,13 @@ class AuthController extends GetxController {
         return true;
       } else {
         _errorMessage.value = response.message;
-        Get.snackbar(
-          'Error',
-          response.message,
-          snackPosition: SnackPosition.BOTTOM,
-        );
+        CustomSnackbar.error(response.message);
         return false;
       }
     } catch (e) {
       log('Login error: $e');
       _errorMessage.value = 'Login failed. Please try again.';
-      Get.snackbar(
-        'Error',
-        'Login failed. Please try again.',
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      CustomSnackbar.error('Login failed. Please try again.');
       return false;
     } finally {
       _isLoading.value = false;
@@ -239,21 +299,42 @@ class AuthController extends GetxController {
     }
   }
 
+  // Get current access token
+  String? getAccessToken() {
+    return _authRepository.getAccessToken();
+  }
+
   // Refresh token
   Future<bool> refreshToken() async {
     try {
+      print('🔄 Attempting to refresh token...');
       log('Attempting to refresh token...');
+      
+      // Check if we have a refresh token
+      final refreshToken = _authRepository.getRefreshToken();
+      print('🔄 Refresh token available: ${refreshToken != null ? 'Yes (${refreshToken.length} chars)' : 'No'}');
+      
+      if (refreshToken == null) {
+        print('🔄 Controller: No refresh token, cannot proceed');
+        return false;
+      }
+      
+      print('🔄 Controller: About to call repository.refreshToken()...');
       final success = await _authRepository.refreshToken();
+      print('🔄 Controller: Repository call completed, success = $success');
       if (!success) {
-        log('Refresh token failed - logging out user');
-        await logout();
+        print('🔄 Refresh token failed');
+        log('Refresh token failed');
+        // Don't automatically logout here, let the caller decide
+        return false;
       } else {
+        print('🔄 Token refreshed successfully');
         log('Token refreshed successfully');
       }
       return success;
     } catch (e) {
+      print('🔄 Refresh token error: $e');
       log('Refresh token error: $e');
-      await logout();
       return false;
     }
   }
@@ -597,4 +678,25 @@ class AuthController extends GetxController {
 
   // Public getter for testing purposes
   AuthRepository get authRepository => _authRepository;
+
+  // Quick test method for browser console testing
+  Future<void> testLogin() async {
+    print('🧪 Starting test login...');
+    final success = await login(
+      email: 'jane.smith@example.com',
+      password: 'newpassword456',
+      rememberMe: true,
+    );
+    print('🧪 Test login result: $success');
+    
+    // Test token refresh immediately after login to verify the fix
+    if (success) {
+      print('🧪 Testing token refresh functionality...');
+      Future.delayed(Duration(seconds: 2), () async {
+        print('🧪 Attempting token refresh test...');
+        final refreshResult = await refreshToken();
+        print('🧪 Token refresh test result: $refreshResult');
+      });
+    }
+  }
 }

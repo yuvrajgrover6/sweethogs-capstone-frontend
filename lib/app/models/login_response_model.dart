@@ -6,13 +6,13 @@ part 'login_response_model.g.dart';
 class LoginResponseModel {
   final String accessToken;
   final String refreshToken;
-  final LoginUserModel user;
+  final LoginUserModel? user; // Make user optional for refresh responses
   final DateTime? expiresAt;
 
   LoginResponseModel({
     required this.accessToken,
     required this.refreshToken,
-    required this.user,
+    this.user, // User is now optional
     this.expiresAt,
   });
 

@@ -36,6 +36,7 @@ dependencies:
 
   # HTTP Client
   dio: ^5.4.0
+  http: ^1.1.0
 
   # Local Storage
   get_storage: ^2.1.1

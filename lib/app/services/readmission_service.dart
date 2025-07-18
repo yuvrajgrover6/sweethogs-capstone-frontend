@@ -51,7 +51,8 @@ class ReadmissionService {
     try {
       log('Calling single patient prediction for ${patient.patientId}...');
 
-      final requestBody = {'patientData': patient.toApiJson()};
+      // Send patient data directly without wrapper, as per new API spec
+      final requestBody = patient.toApiJson();
 
       final response = await _apiService.post<Map<String, dynamic>>(
         ApiConstants.readmissionPredict,

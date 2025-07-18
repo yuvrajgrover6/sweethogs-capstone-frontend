@@ -79,31 +79,73 @@ class AuthRemoteDataSource {
     required String refreshToken,
   }) async {
     try {
+      print('🔄 RemoteDataSource: Attempting refresh token...');
       log('RemoteDataSource: Attempting refresh token...');
+      print('🔄 RemoteDataSource: Using endpoint: ${ApiConstants.refreshToken}');
+      
       final response = await _apiService.post(
         ApiConstants.refreshToken,
         data: {'refreshToken': refreshToken},
       );
 
-      if (response.data == null) {
-        throw Exception('No data received from server');
-      }
+      print('🔄 RemoteDataSource: Response received, status: ${response.statusCode}');
+      print('🔄 RemoteDataSource: Response data type: ${response.data.runtimeType}');
+      print('🔄 RemoteDataSource: Response data: ${response.data}');
+      
+      // Check if response is successful (200-299)
+      if (response.statusCode! >= 200 && response.statusCode! < 300) {
+        if (response.data == null) {
+          print('🔄 RemoteDataSource: Success status but no data received');
+          return ApiResponseModel<LoginResponseModel>(
+            code: response.statusCode!,
+            message: 'No data received from server',
+          );
+        }
 
-      log('RemoteDataSource: Refresh token response received');
-      return ApiResponseModel<LoginResponseModel>.fromJson(
-        response.data!,
-        (json) => LoginResponseModel.fromJson(json as Map<String, dynamic>),
-      );
+        // Validate response data structure
+        if (response.data is! Map<String, dynamic>) {
+          print('🔄 RemoteDataSource: Invalid response format - not a JSON object');
+          print('🔄 RemoteDataSource: Data content: ${response.data.toString()}');
+          return ApiResponseModel<LoginResponseModel>(
+            code: response.statusCode!,
+            message: 'Invalid response format from server',
+          );
+        }
+
+        print('🔄 RemoteDataSource: Parsing successful response data...');
+        log('RemoteDataSource: Refresh token response received');
+        return ApiResponseModel<LoginResponseModel>.fromJson(
+          response.data!,
+          (json) => LoginResponseModel.fromJson(json as Map<String, dynamic>),
+        );
+      } else {
+        print('🔄 RemoteDataSource: Non-success status: ${response.statusCode}');
+        return ApiResponseModel<LoginResponseModel>(
+          code: response.statusCode!,
+          message: 'Server returned error: ${response.statusCode}',
+        );
+      }
     } catch (e) {
+      print('🔄 RemoteDataSource: Refresh token error: $e');
       log('Refresh token error: $e');
 
       // For 401 errors (invalid/expired refresh token), return proper error
-      if (e is DioException && e.response?.statusCode == 401) {
-        log('Refresh token returned 401 - token is invalid');
-        return ApiResponseModel<LoginResponseModel>(
-          code: 401,
-          message: 'Refresh token is invalid or expired',
-        );
+      if (e is DioException) {
+        final statusCode = e.response?.statusCode ?? 500;
+        if (statusCode == 401) {
+          print('🔄 RemoteDataSource: 401 - Refresh token is invalid or expired');
+          log('Refresh token returned 401 - token is invalid');
+          return ApiResponseModel<LoginResponseModel>(
+            code: 401,
+            message: 'Refresh token is invalid or expired',
+          );
+        } else {
+          print('🔄 RemoteDataSource: HTTP error ${statusCode}');
+          return ApiResponseModel<LoginResponseModel>(
+            code: statusCode,
+            message: 'HTTP error: ${e.message}',
+          );
+        }
       }
 
       // For other errors, return failure

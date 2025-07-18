@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../controllers/patients_controller.dart';
 import '../../controllers/auth_controller.dart';
 import '../../models/patient_model.dart';
+import '../../utils/custom_snackbar.dart';
 
 class PatientsView extends StatelessWidget {
   PatientsView({super.key});
@@ -78,6 +79,13 @@ class PatientsView extends StatelessWidget {
       ),
       // Add drawer for mobile and tablet
       drawer: (isMobile || isTablet) ? _buildMobileDrawer(context) : null,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _addNewPatient(),
+        backgroundColor: const Color(0xFF0098B9),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: Text(isMobile ? 'Add' : 'Add Patient'),
+      ),
     );
   }
 
@@ -1012,7 +1020,7 @@ class PatientsView extends StatelessWidget {
                       ),
                       SizedBox(height: isMobile ? 16 : 24),
                       ElevatedButton(
-                        onPressed: () => patientsController.refreshData(),
+                        onPressed: () => patientsController.refreshPatientData(),
                         child: const Text('Retry'),
                       ),
                     ],
@@ -1033,7 +1041,7 @@ class PatientsView extends StatelessWidget {
                       ),
                       SizedBox(height: isMobile ? 12 : 16),
                       Text(
-                        'No Patients Found',
+                        'No Patients Available',
                         style: TextStyle(
                           fontSize: isMobile ? 16 : 18,
                           fontWeight: FontWeight.w600,
@@ -1042,11 +1050,12 @@ class PatientsView extends StatelessWidget {
                       ),
                       SizedBox(height: isMobile ? 6 : 8),
                       Text(
-                        'Try adjusting your search or filter criteria',
+                        'Connect to the API server or add new patients to get started',
                         style: TextStyle(
                           color: Colors.grey[600],
                           fontSize: isMobile ? 12 : 14,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
@@ -1238,7 +1247,7 @@ class PatientsView extends StatelessWidget {
           ),
           Text(
             patient.medicalSpecialty != '?'
-                ? patient.medicalSpecialty
+                ? patient.medicalSpecialty ?? ""
                 : 'General',
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
@@ -1276,12 +1285,11 @@ class PatientsView extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               IconButton(
-                onPressed: () {
-                  Get.snackbar('Info', 'More options - Feature coming soon!');
-                },
-                icon: const Icon(Icons.more_vert, size: 16),
+                onPressed: () => _editPatient(patient),
+                icon: const Icon(Icons.edit, size: 16),
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.grey[100],
+                  backgroundColor: const Color(0xFF0098B9).withOpacity(0.1),
+                  foregroundColor: const Color(0xFF0098B9),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -1362,7 +1370,7 @@ class PatientsView extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  patient.race,
+                  patient.race != '?' ? patient.race ?? "" : 'Unknown',
                   style: TextStyle(
                     fontSize: isTablet ? 10 : 12,
                     color: Colors.grey[600],
@@ -1404,7 +1412,7 @@ class PatientsView extends StatelessWidget {
               children: [
                 Text(
                   patient.medicalSpecialty != '?'
-                      ? patient.medicalSpecialty
+                      ? patient.medicalSpecialty ?? ""
                       : 'General',
                   style: TextStyle(
                     fontWeight: FontWeight.w500,
@@ -1526,22 +1534,13 @@ class PatientsView extends StatelessWidget {
                   onSelected: (value) {
                     switch (value) {
                       case 'view':
-                        Get.snackbar(
-                          'Info',
-                          'View patient details - Feature coming soon!',
-                        );
+                        CustomSnackbar.comingSoon('View patient details - Feature coming soon!');
                         break;
                       case 'edit':
-                        Get.snackbar(
-                          'Info',
-                          'Edit patient - Feature coming soon!',
-                        );
+                        _editPatient(patient);
                         break;
                       case 'history':
-                        Get.snackbar(
-                          'Info',
-                          'Patient history - Feature coming soon!',
-                        );
+                        CustomSnackbar.comingSoon('Patient history - Feature coming soon!');
                         break;
                     }
                   },
@@ -1952,5 +1951,23 @@ class PatientsView extends StatelessWidget {
 
     // Run batch prediction
     patientsController.predictBatchReadmission(patientsToPredict);
+  }
+
+  // Navigate to add new patient
+  void _addNewPatient() async {
+    final result = await Get.toNamed('/patient-form');
+    if (result == true) {
+      // Refresh the patient list if a patient was added/updated
+      patientsController.refreshPatientData();
+    }
+  }
+
+  // Navigate to edit patient
+  void _editPatient(PatientModel patient) async {
+    final result = await Get.toNamed('/patient-form', arguments: patient);
+    if (result == true) {
+      // Refresh the patient list if a patient was updated
+      patientsController.refreshPatientData();
+    }
   }
 }

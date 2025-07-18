@@ -42,21 +42,24 @@ class AuthRepository {
           );
         }
 
-        // Create and save full user profile from login user data
-        // Note: For full profile, we'll need to fetch it separately
-        // But for now, save what we have from login response
-        final basicUser = UserModel(
-          id: loginData.user.id,
-          email: loginData.user.email,
-          firstName: '', // These will be filled when we fetch full profile
-          lastName: '',
-          role: loginData.user.role,
-          isActive: true,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          version: 0,
-        );
-        await _localDataSource.saveUserProfile(basicUser);
+        // Create and save full user profile from login user data (only for login responses)
+        if (loginData.user != null) {
+          // Note: For full profile, we'll need to fetch it separately
+          // But for now, save what we have from login response
+          final basicUser = UserModel(
+            id: loginData.user!.id,
+            email: loginData.user!.email,
+            firstName: '', // These will be filled when we fetch full profile
+            lastName: '',
+            role: loginData.user!.role,
+            isActive: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            version: 0,
+          );
+          await _localDataSource.saveUserProfile(basicUser);
+        }
+        // For refresh responses, user profile is already saved locally
 
         // Update authentication state
         await _localDataSource.setLoggedIn(true);
@@ -107,20 +110,22 @@ class AuthRepository {
         }
         await _localDataSource.setLoggedIn(true);
 
-        // Create and save basic user profile
-        final basicUser = UserModel(
-          id: loginData.user.id,
-          email: loginData.user.email,
-          firstName: firstName,
-          lastName: lastName,
-          phoneNumber: phoneNumber,
-          role: loginData.user.role,
-          isActive: true,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          version: 0,
-        );
-        await _localDataSource.saveUserProfile(basicUser);
+        // Create and save basic user profile (only for registration responses)
+        if (loginData.user != null) {
+          final basicUser = UserModel(
+            id: loginData.user!.id,
+            email: loginData.user!.email,
+            firstName: firstName,
+            lastName: lastName,
+            phoneNumber: phoneNumber,
+            role: loginData.user!.role,
+            isActive: true,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            version: 0,
+          );
+          await _localDataSource.saveUserProfile(basicUser);
+        }
       }
 
       return response;
@@ -134,14 +139,21 @@ class AuthRepository {
   Future<bool> refreshToken() async {
     try {
       final refreshToken = _localDataSource.getRefreshToken();
-      if (refreshToken == null) return false;
+      print('🔄 Repository: refreshToken = ${refreshToken != null ? 'present (${refreshToken.length} chars)' : 'null'}');
+      if (refreshToken == null) {
+        print('🔄 Repository: No refresh token available, cannot refresh');
+        return false;
+      }
 
+      print('🔄 Repository: Calling remote data source...');
       final response = await _remoteDataSource.refreshToken(
         refreshToken: refreshToken,
       );
 
+      print('🔄 Repository: Remote response success = ${response.success}, code = ${response.code}');
       if (response.success && response.body != null) {
         final loginData = response.body!;
+        print('🔄 Repository: New tokens received, saving...');
 
         if (loginData.expiresAt != null) {
           await _localDataSource.saveAuthData(
@@ -157,11 +169,22 @@ class AuthRepository {
             loginData.refreshToken,
           );
         }
+        print('🔄 Repository: Tokens saved successfully');
         return true;
       }
 
+      // Handle specific error codes
+      if (response.code == 401) {
+        print('🔄 Repository: Refresh token expired/invalid (401) - clearing stored tokens');
+        // Clear invalid tokens but preserve remember me settings
+        await _localDataSource.clearAuthData();
+        return false;
+      }
+
+      print('🔄 Repository: Refresh failed - response code: ${response.code}, message: ${response.message}');
       return false;
     } catch (e) {
+      print('🔄 Repository: Refresh token error: $e');
       log('Refresh token repository error: $e');
       return false;
     }
@@ -180,13 +203,18 @@ class AuthRepository {
         }
       }
 
-      // Clear local data
-      await _localDataSource.clearAuthData();
+      // For manual logout, clear all data including preferences
+      await _localDataSource.clearAllAuthData();
     } catch (e) {
       log('Logout repository error: $e');
       // Always clear local data even if remote logout fails
-      await _localDataSource.clearAuthData();
+      await _localDataSource.clearAllAuthData();
     }
+  }
+
+  // Clear session (preserves remember me settings)
+  Future<void> clearSession() async {
+    await _localDataSource.clearAuthData();
   }
 
   // Get user profile
@@ -311,6 +339,11 @@ class AuthRepository {
 
   bool hasValidSession() {
     return _localDataSource.hasValidSession();
+  }
+
+  // Check if user should stay logged in (for remember me functionality)
+  bool shouldStayLoggedIn() {
+    return _localDataSource.shouldStayLoggedIn();
   }
 
   bool isTokenExpired() {
